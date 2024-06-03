@@ -13,10 +13,11 @@ AutoBOM is a command line tool and can be run locally, but is meant to be used a
 This is still *heavily* in beta. There are bugs abound. Please report any issues by making a Github Issue.
 
 There are only a handful of CAD packages that we can support, given that all this exporting needs to run headless and automatically. Here is the list of planned packages we will support:
-[x] FreeCAD
-[ ] OpenSCAD
-[ ] KiCAD
-[ ] Wireviz
+
+- [x] FreeCAD
+- [ ] OpenSCAD
+- [ ] KiCAD
+- [ ] Wireviz
 
 ## Install
 
