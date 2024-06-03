@@ -8,6 +8,8 @@ AutoBOM is a Bill of Materials exporting and rendering tool. It does:
 
 AutoBOM is a command line tool and can be run locally, but is meant to be used as a Github Action for automatic exporting and rendering of a BoM for hardware releases.
 
+It is an effort to formalize and standardize the smattering of automatic export and render tools developed as part of the [LumenPnP project](https://github.com/opulo-inc/lumenpnp).
+
 ## Status
 
 This is still *heavily* in beta. There are bugs abound. Please report any issues by making a Github Issue.
