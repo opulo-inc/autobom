@@ -24,21 +24,21 @@ There are only a handful of CAD packages that we can support, given that all thi
 With Hatch installed, from the autobom directory, run:
 
 ```console
-    hatch env create
+hatch env create
 ```
 
 Then, if you want to test building and running as a command line tool:
 
 ```console
-    hatch build
-    pip install .
-    autobom
+hatch build
+pip install .
+autobom
 ```
 
 Or, to just run within hatch:
 
 ```console
-    hatch run autobom
+hatch run autobom
 ```
 
 ## Usage
