@@ -167,4 +167,4 @@ cython_debug/
 # AutoBOM specific
 #
 # Text autobom export folder for examples
-autobom/
+/autobom/

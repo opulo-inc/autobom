@@ -1,0 +1,104 @@
+* {
+    margin:0px;
+    padding:0px;
+}
+
+html, body, #fullheight {
+    min-height: 100% !important;
+    height: 100%;
+}
+
+body {
+    background-color: #222;
+    font-family: helvetica;
+    color: #fff;
+    display:flex;
+    flex-direction: column;
+    
+}
+table {
+    width: 100%;
+    position: relative;
+    border-collapse: collapse;
+}
+h1 {
+    color:white;
+}
+.optional {
+    background-color: #430;
+}
+tr.titlerow th {
+    background-color: goldenrod;
+    position: sticky;
+    top: 0;
+    color:black;
+}
+
+tr.active {
+    background-color: #af8000;
+}
+
+th, td {
+    padding: 10px;
+    text-align: left;
+    border-bottom: 1px solid #fff
+}
+a {
+    color:goldenrod;
+}
+
+img {
+    max-width:100%;
+    height:auto;
+}
+
+tr:hover {
+    background-color: #444;
+}
+
+#header {
+    padding:1em;     
+    border-bottom: 2px solid #fff;
+    
+}
+
+#bulk {
+    flex-grow: 1;
+    display: flex;
+    flex-direction:row;
+}
+
+#bom-items {
+    
+    flex: 1 1 0;
+}
+
+#render {
+    flex: 0 1 0;
+    text-align: center;
+    border-left: 2px solid #fff;
+    min-width: 40%;
+    
+
+    display: flex;
+    flex-direction: column;
+    
+}
+
+#replace-with-render {
+    background-color: #a1a1a1;
+    flex:auto;
+    text-align: center;
+}
+
+.online_3d_viewer {
+
+    height: 100%;
+}
+
+#notes-render {
+    background-color: orange;
+    bottom:0px;
+    width:100%;
+    position: relative;
+}
