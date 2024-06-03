@@ -1,0 +1,23 @@
+{
+  "gh-repo": "https://github.com/opulo-inc/lumenpnp",
+  "bom_path": "example.json",
+  "mcad": {
+    "export": "step",
+    "render": "src"
+  },
+  "ecad": {
+    "export": "gerber",
+    "render": "src",
+    "path": "example/ecad"
+  },
+  "wcad": {
+    "render": "image",
+    "path": "."
+  },
+  "site": {
+    "colors": {
+      "primary": "daa520",
+      "secondary": "daa520"
+    }
+  }
+}

@@ -1,0 +1,89 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autobom"
+dynamic = ["version"]
+description = 'Hardware BoM Tool'
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+keywords = []
+authors = [
+  { name = "Stephen Hawes", email = "sphawes@gmail.com" },
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: Implementation :: CPython",
+  "Programming Language :: Python :: Implementation :: PyPy",
+]
+dependencies = []
+
+[project.urls]
+Documentation = "https://github.com/unknown/autobom#readme"
+Issues = "https://github.com/unknown/autobom/issues"
+Source = "https://github.com/unknown/autobom"
+
+[project.scripts]
+autobom="autobom:main"
+
+[tool.hatch.version]
+path = "src/autobom/__about__.py"
+
+[tool.hatch.envs.default]
+python = "3.10"
+dependencies = [
+  "coverage[toml]>=6.5",
+  "pytest",
+  "pyyaml",
+  "munch"
+]
+
+[tool.hatch.envs.default.scripts]
+autobom = "python3 -m autobom.__init__"
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+  "- coverage combine",
+  "coverage report",
+]
+cov = [
+  "test-cov",
+  "cov-report",
+]
+
+[[tool.hatch.envs.all.matrix]]
+python = ["3.10"]
+
+[tool.hatch.envs.types]
+dependencies = [
+  "mypy>=1.0.0",
+]
+[tool.hatch.envs.types.scripts]
+check = "mypy --install-types --non-interactive {args:src/autobom tests}"
+
+[tool.coverage.run]
+source_pkgs = ["autobom", "tests"]
+branch = true
+parallel = true
+omit = [
+  "src/autobom/__about__.py",
+]
+
+[tool.coverage.paths]
+autobom = ["src/autobom", "*/autobom/src/autobom"]
+tests = ["tests", "*/autobom/tests"]
+
+[tool.coverage.report]
+exclude_lines = [
+  "no cov",
+  "if __name__ == .__main__.:",
+  "if TYPE_CHECKING:",
+]

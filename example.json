@@ -1,0 +1,22 @@
+{
+  "name": "LumenPnP",
+  "version": "v3.2.2",
+  "parts": [
+    {
+      "name": "y-gantry",
+      "quantity": 2,
+      "type": "mcad",
+      "optional": false,
+      "source": "https://opulo.io",
+      "notes": "very cool part wow"
+    },
+    {
+      "name": "8mm-strip-feeder",
+      "quantity": 1,
+      "type": "mcad",
+      "optional": false,
+      "source": "https://opulo.io",
+      "notes": ""
+    }
+  ]
+}
