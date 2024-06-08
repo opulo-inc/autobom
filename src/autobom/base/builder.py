@@ -45,20 +45,18 @@ class Builder:
         self.bom = bom
         self.manifest = {}
 
-        self.log = Logger()
         self.site = Site(self.config["site"])
         
         
     def run(self):
+        Logger.info("Autobom starting")
         # make autobom directory to start housing our goodies
         if os.path.exists("autobom"):
-            print("Directory 'autobom' already exists, wiping")
             # wipe autobom
             shutil.rmtree("autobom")
 
         os.makedirs("autobom/data/render")
         os.makedirs("autobom/data/export")
-        print("Directory 'autobom' created")
 
         sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
         shortsha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
@@ -70,19 +68,22 @@ class Builder:
         self.manifest['version'] = self.bom['version']
         self.manifest['shortsha'] = shortsha
         self.manifest['parts'] = []
+
+        Logger.info(f'Building {self.manifest["name"]} - {self.manifest["version"]} - {shortsha}')
+        Logger.info(f'Using BOM: {self.manifest["bom"]}')
         
         # iterating through parts
         for part in self.bom["parts"]:
-            print("Now processing: " + part['name'])
+            Logger.info("Now processing: " + part['name'])
 
             if part["type"] == "mcad":
                 
-                mcad = MCAD(part, self.config)
+                mcad = MCAD(part, self.config, sha)
                 if not mcad.find():
-                    self.log.warn("Was not able to find source file for " + part['name'])
+                    Logger.warn("Was not able to find source file for " + part['name'])
                 else:
                 
-                    mcad_render_status = mcad.out(sha, self.manifest)
+                    mcad_render_status = mcad.out(self.manifest)
 
                     #based on what came out, we add to manifest 
 
@@ -96,7 +97,7 @@ class Builder:
             elif part["type"] == "misc":
                 pass
             else:
-                self.log.warn("Part type '" + str(part["type"]) + "' for " + str(part["name"]) + " is unknown. Skipping.")
+                Logger.warn("Part type '" + str(part["type"]) + "' for " + str(part["name"]) + " is unknown. Skipping.")
 
         # save manifest to file
         with open("autobom/data/manifest.json", "w") as outfile: 
@@ -104,6 +105,7 @@ class Builder:
 
         self.site.build(self.manifest)
 
+        Logger.info("Autobom done!")
         
         # zip up the folder
 

@@ -24,7 +24,7 @@ class Site():
 
         # copying over web assets
         module_path = os.path.dirname(autobom.__file__)
-        print(shutil.copytree(module_path + "/web", "autobom/data/web"))
+        shutil.copytree(module_path + "/web", "autobom/data/web")
 
         # make html file that will become our BOM
         f = open("autobom/index.html", "w")

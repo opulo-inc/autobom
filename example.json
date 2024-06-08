@@ -14,7 +14,18 @@
       "name": "8mm-strip-feeder",
       "quantity": 1,
       "type": "mcad",
+      "render": "img",
+      "export": "stl",
       "optional": false,
+      "source": "https://opulo.io",
+      "notes": ""
+    },
+    {
+      "name": "joint",
+      "quantity": 1,
+      "type": "mcad",
+      "optional": false,
+      "render": "https://www.opulo.io/cdn/shop/files/3_1_22e12ea8-cf13-41c4-9d84-b98fcfaac425_1512x.png?v=1694202141",
       "source": "https://opulo.io",
       "notes": ""
     }

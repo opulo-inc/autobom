@@ -24,7 +24,6 @@ freecad_paths = [
 
 for path in freecad_paths:
     if os.path.exists(path):
-        print(f"Added possible FreeCAD path: {path}")
         sys.path.append(path)
 
 import FreeCAD
@@ -42,8 +41,6 @@ class Freecad():
 
         if type not in export_options:
             return False
-        
-        print("Processing " + self.name)
 
         doc = FreeCAD.open(self.path)
 
@@ -52,9 +49,7 @@ class Freecad():
         body = [obj for obj in doc.Objects if obj.Label == "Body"]
 
         if len(body) == 0:
-            print(f"Cannot find body object. {len(doc.Objects)} objects present")
-            for obj in doc.Objects:
-                print(f"- {obj.Label}")
+            #print(f"Cannot find body object. {len(doc.Objects)} objects present")
 
             raise Exception(f"Object named 'Body' not found in model {self.path.name}")
 
@@ -71,7 +66,6 @@ class Freecad():
                 raise FileNotFoundError(f"Cannot find font file {new_font_file}")
 
             if new_font_file != font_file_property:
-                print(f"\tCorrected '{obj.Label}' font file name from {font_file_property}")
                 setattr(obj, "FontFile", new_font_file)
                 obj.touch()
 
@@ -85,13 +79,12 @@ class Freecad():
         doc.recompute(None, True, True)
         t1 = time.perf_counter()
         total = t1 - t0
-        print(f"\tRecompute of model took {total:3f}s")
+        #print(f"\tRecompute of model took {total:3f}s")
 
         shape = body.Shape.copy(False)
 
         if type == "step" or type == "all":
             shape.exportStep("autobom/data/export/" + name + ".step")
-            print("exported step")
 
         if type == "stl" or type == "all":
             # Generate STL

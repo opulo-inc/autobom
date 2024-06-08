@@ -12,7 +12,10 @@ class Logger:
     def __init__(self):
         pass
 
+    @classmethod
     def warn(self, msg):
         print("WARN - " + str(datetime.datetime.now()) + " - " + msg)
+
+    @classmethod
     def info(self, msg):
         print("INFO - " + str(datetime.datetime.now()) + " - " + msg)

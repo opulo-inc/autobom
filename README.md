@@ -17,7 +17,7 @@ This is still *heavily* in beta. There are bugs abound. Please report any issues
 There are only a handful of CAD packages that we can support, given that all this exporting needs to run headless and automatically. Here is the list of planned packages we will support:
 
 - [x] FreeCAD
-- [ ] OpenSCAD
+- [x] OpenSCAD
 - [ ] KiCAD
 - [ ] Wireviz
 
