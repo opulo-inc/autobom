@@ -20,7 +20,7 @@ class Site():
         # updating default settings based on any config in autobom.json
         self.settings = {**default, **config}
 
-    def build(self, manifest):
+    def renderSite(self, manifest):
 
         # copying over web assets
         module_path = os.path.dirname(autobom.__file__)
@@ -31,11 +31,11 @@ class Site():
 
         f.write(header)
 
-        githubLink = "whoknows"
-        gitcommit = "whatever"
+        githubLink = manifest["source_url"]
+        gitCommit = manifest['shortsha']
 
         title = "<h1>" + str(manifest["name"]) + " BOM - " + str(manifest["version"]) + "</h1>"
-        source = "<a href='" + githubLink + "' target='_blank' rel='noopener noreferrer'><h4>" + gitcommit + "</h4></a>"
+        source = "<a href='" + githubLink + "' target='_blank' rel='noopener noreferrer'><h4>" + gitCommit + "</h4></a>"
 
         f.write(title)
         f.write(source)

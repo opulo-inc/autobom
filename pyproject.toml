@@ -5,10 +5,10 @@ build-backend = "hatchling.build"
 [project]
 name = "autobom"
 dynamic = ["version"]
-description = 'Hardware BoM Tool'
+description = 'Hardware BOM Tool'
 readme = "README.md"
 requires-python = ">=3.10"
-license = "MIT"
+license = "MPLv2"
 keywords = []
 authors = [
   { name = "Stephen Hawes", email = "sphawes@gmail.com" },
