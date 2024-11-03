@@ -45,19 +45,17 @@ ENV PATH="/root/.cargo/bin/:$PATH"
 # ---------------
 
 # Copies your code file from your action repository to the filesystem path `/` of the container
-COPY . /autobom
+COPY . ~/autobom
 
 # remove existing virtual environment
-RUN sudo rm -r /autobom/.venv
+RUN sudo rm -r ~/autobom/.venv
 
-WORKDIR /autobom/example
-
-RUN uv sync --verbose
+RUN cd ~/autobom && uv sync --verbose
 
 # Code file to execute when the docker container starts up (`entrypoint.sh`)
 #CMD ["uv", "run", "autobom"]
 
-CMD ["echo", "'out=success'", ">>", "$GITHUB_OUTPUT"] 
+#CMD ["echo", "'out=success'", ">>", "$GITHUB_OUTPUT"] 
 
 # setting up a non-root user
 
