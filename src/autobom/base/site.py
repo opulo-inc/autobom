@@ -6,7 +6,7 @@
 The Site class builds the standalone html page! It takes in the builder.web_data list, and generates an html page from there.
 """
 
-import autobom, os, shutil
+import os, shutil, autobom
 
 default = {
     "colors": {

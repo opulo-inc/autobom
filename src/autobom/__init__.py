@@ -8,7 +8,6 @@ APP_NAME = 'AutoBOM'  # Application name in texts meant to be human readable
 APP_URL = 'https://github.com/opulo-inc/autobom'
 
 import json, os, shutil
-import autobom
 
 from .base.builder import Builder
 

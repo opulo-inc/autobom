@@ -7,6 +7,7 @@ import os, fnmatch, copy, subprocess, sys, time
 from ..base.logger import Logger
 
 freecad_paths = [
+    '/squashfs-root/usr/lib',
     '/home/runner/work/feeder/feeder/squashfs-root/usr/lib',  # For CI when using AppImage
     '/usr/lib/freecad/lib/',  # For CI
     '/usr/lib/freecad-daily-python3/lib/',  # For Ubuntu

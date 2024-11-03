@@ -1,0 +1,9 @@
+# action.yml
+name: 'AutoBOM'
+description: 'Automatically export and render your hardware project'
+outputs:
+  out: # id of output
+    description: 'result'
+runs:
+  using: 'docker'
+  image: 'Dockerfile'

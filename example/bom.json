@@ -39,11 +39,3 @@
     }
   ]
 }
-
-
-[tool.hatch.envs.default.scripts]
-autobom = "python3 -m autobom.__init__"
-
-
-[project.scripts]
-autobom="autobom:main"

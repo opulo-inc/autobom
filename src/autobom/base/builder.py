@@ -11,7 +11,7 @@ The Builder class is the main thing responsible for parsing the bom.json file an
 - getting the website built
 """
 
-import enum, time, json, os, shutil, subprocess, autobom
+import enum, time, json, os, shutil, subprocess
 
 from .logger import Logger
 from .site import Site
