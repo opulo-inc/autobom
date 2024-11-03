@@ -19,7 +19,7 @@ RUN apt update \
     && apt-get -y install qtbase5-dev
 
 # download and install freecad appimage
-RUN wget https://github.com/FreeCAD/FreeCAD/releases/download/0.21.2/FreeCAD-0.21.2-Linux-aarch64.AppImage -O /FreeCAD.AppImage
+RUN wget https://github.com/FreeCAD/FreeCAD/releases/download/0.21.2/FreeCAD-0.21.2-Linux-x86_64.AppImage -O /FreeCAD.AppImage
 
 # change permissions of appimage
 RUN chmod +x /FreeCAD.AppImage
