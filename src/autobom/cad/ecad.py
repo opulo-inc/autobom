@@ -113,16 +113,3 @@ class ECAD():
             print(e)
             return False
         
-    def exportAndRenderFromKicad(self):
-
-        base, ext = os.path.splitext(self.path)
-
-        export_path = "autobom/export/" + str(self.name)
-        os.makedirs(export_path)
-
-        module_path = os.path.dirname(autobom.__file__)
-        config_path = module_path + "/cad/config.kibot.yaml"
-        
-        subprocess.call(["kibot", "-c", config_path, "-e", self.name + ".kicad_sch", "-b", self.name + ".kicad_pcb", "-d", export_path ], stdout=subprocess.STDOUT, stderr=subprocess.STDOUT)
-
-user=postgres.sszjvkzybnilulgqunlx password=[YOUR-PASSWORD] host=aws-0-us-east-2.pooler.supabase.com port=6543 dbname=postgres

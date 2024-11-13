@@ -1,9 +1,21 @@
 # action.yml
 name: 'AutoBOM'
 description: 'Automatically export and render your hardware project'
-outputs:
-  out: # id of output
-    description: 'result'
+inputs:
+  repo-ref:
+    description: "Reference to the repo to run AutoBOM on"
+    required: true
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
+  using: 'composite'
+  steps:
+
+    - name: Start Render Engines
+      run: docker compose up -d
+      shell: bash
+
+    - name: Run AutoBOM
+      run: uv run autobom
+      shell: bash
+      env:
+        REPO: ${{ inputs.repo-ref}}
+

@@ -1,0 +1,74 @@
+# Copyright (c) 2024 Opulo, Inc
+# Published under the Mozilla Public License
+# Full text available at: https://www.mozilla.org/en-US/MPL/
+
+# BUILD:
+#   docker build -t kicad -f Dockerfile-kicad . --platform=linux/amd64
+# even on an arm computer, we need to pick amd because kicad currently doens't have an arm build of 8.0 on the ppa
+
+# RUN:
+#   docker run -v ./renderQueue:/renderQueue -it --rm kicad
+
+#FROM ubuntu:24.04
+#FROM ghcr.io/inti-cmnb/kicad8_auto
+FROM ghcr.io/inti-cmnb/kicad8_auto:1.8.1
+
+# ---------------
+# DEPENDENCY INSTALL
+# ---------------
+
+RUN apt update && \
+    apt-get -y install wget git git-lfs zip librsvg2-bin imagemagick && \
+    apt update
+
+# ---------------
+# KICAD INSTALL
+# ---------------
+
+# # installs kicad from ppa
+# RUN add-apt-repository --yes ppa:kicad/kicad-8.0-releases && \
+#     apt update && \
+#     apt -y install --install-recommends kicad
+#     # kicad-footprints kicad-symbols kicad-templates
+
+# # installs kiauto and kibot from github as .deb files
+# RUN wget https://github.com/INTI-CMNB/KiAuto/releases/download/v2.3.3/kiauto_2.3.3-1_all.deb -O /KiAuto.deb && \
+#     apt -y install --no-install-recommends /KiAuto.deb && \
+#     rm /KiAuto.deb
+    
+# RUN wget https://github.com/INTI-CMNB/KiBot/releases/download/v1.8.2/kibot_1.8.2-2_all.deb -O /KiBot.deb && \
+#     apt -y install --no-install-recommends /KiBot.deb && \
+#     rm /KiBot.deb
+
+# RUN wget https://github.com/INTI-CMNB/KiBoM/releases/download/v1.9.1-2/kibom.inti-cmnb_1.9.1-2_all.deb -O /KiBom.deb && \
+#     apt -y install --no-install-recommends /KiBom.deb && \
+#     rm /KiBom.deb
+
+# RUN wget https://github.com/INTI-CMNB/InteractiveHtmlBom/releases/download/v2.9.0-2/interactivehtmlbom.inti-cmnb_2.9.0-2_all.deb -O /iBom.deb && \
+#     apt -y install --no-install-recommends /iBom.deb && \
+#     rm /iBom.deb
+
+# ---------------
+# UV INSTALL
+# ---------------
+
+# download and run uv installer
+ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
+RUN /install.sh && rm /install.sh
+
+# Add uv to path
+ENV PATH="/root/.local/bin/:$PATH"
+
+# ---------------
+# Directory Setup
+# ---------------
+
+# copies autobom dir into /autobom in container
+COPY . /autobom
+
+
+# runs prep scrip that runs xvfb server, exports DISPLAY, and runs the python script
+CMD ["/autobom/src/autobom/render/ecad-entry.sh"]
+
+#CMD ["echo", "'out=success'", ">>", "$GITHUB_OUTPUT"] 
+#kicad-cli sch export netlist -o /renderQueue/kicad/in/lightPixel/lightPixel.xml --format kicadxml /renderQueue/kicad/in/lightPixel/lightPixel.kicad_sch

@@ -7,11 +7,15 @@ CMD_NAME = 'autobom'  # Lower case command and module name
 APP_NAME = 'AutoBOM'  # Application name in texts meant to be human readable
 APP_URL = 'https://github.com/opulo-inc/autobom'
 
-import json, os, shutil
+import json, sys, os
 
 from .base.builder import Builder
 
 def main():
+
+    # gets path to repository from command line argument, runs there
+    repoPath = os.environ.get('AUTOBOM_PATH')
+    os.chdir(repoPath)
 
     # open autobom.json in current directory
     c = open('autobom.json')

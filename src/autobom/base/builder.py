@@ -11,7 +11,7 @@ The Builder class is the main thing responsible for parsing the bom.json file an
 - getting the website built
 """
 
-import enum, time, json, os, shutil, subprocess
+import enum, time, json, os, shutil, subprocess, autobom, fnmatch
 
 from .logger import Logger
 from .site import Site
@@ -24,6 +24,11 @@ default = {
         "secondary": "af8000"
     }
 }
+
+mcad_filetype = [
+    ".fcstd",
+    ".scad"
+]
 
 class McadExportTypes(enum.IntEnum):
     NONE = 0
@@ -87,7 +92,7 @@ class Builder:
             if part["type"] == "mcad":
                 
                 mcad = MCAD(part, self.config, sha)
-                if not mcad.find():
+                if not self.findMcad(mcad):
                     Logger.warn("Was not able to find source file for " + part['name'])
                 else:
                 
@@ -116,6 +121,27 @@ class Builder:
         Logger.info("Autobom done!")
         
         # zip up the folder
+
+    def findMcad(self, mcad):
+        # this function hunts for the source file, based on the part name and type
+        
+        search_path = "."
+        # if there is a path from settings, use it as starting search path.
+        if "path" in self.settings["mcad"]:
+            search_path = self.settings['mcad']["path"]
+    
+        for root, dirs, files in os.walk(search_path):
+            for name in files:
+                if fnmatch.fnmatch(name, mcad.part_info["name"] + ".*"):
+                    full_path = os.path.join(root, name)
+                    base, ext = os.path.splitext(full_path)
+                    if ext.lower() in mcad_filetype:
+                        Logger.info(f"Found a source file match for {mcad.part_info['name']} with {name}.")
+                        current = "./"
+                        mcad.path = os.path.relpath(full_path, current)
+                        return mcad.path
+
+        return False
 
     def renderSite(self):
 

@@ -1,0 +1,4 @@
+Ref,Val,Package,PosX,PosY,Rot,Side
+"J1","AUX","JST_PH_S3B-PH-SM4-TB_1x03-1MP_P2.00mm_Horizontal",0.0000,2.8500,180.0000,top
+"R1","330R","R_0805_2012Metric",3.7500,-5.0000,0.0000,top
+"U1","SN74LVC2G34","TSOT-23-6_HandSoldering",-2.0000,-5.0000,0.0000,top
