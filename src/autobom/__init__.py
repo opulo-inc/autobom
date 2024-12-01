@@ -7,11 +7,13 @@ CMD_NAME = 'autobom'  # Lower case command and module name
 APP_NAME = 'AutoBOM'  # Application name in texts meant to be human readable
 APP_URL = 'https://github.com/opulo-inc/autobom'
 
-import json, sys, os
+import logging
 
 from .base.builder import Builder
 
 def main():
+
+    logging.basicConfig(level=logging.DEBUG)
 
     builder = Builder()
 
