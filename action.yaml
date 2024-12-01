@@ -5,6 +5,9 @@ inputs:
   repo-ref:
     description: "Reference to the repo to run AutoBOM on"
     required: true
+branding:
+  icon: 'crosshair'
+  color: 'yellow'
 runs:
   using: 'composite'
   steps:

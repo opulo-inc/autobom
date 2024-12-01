@@ -2,7 +2,7 @@
 # Published under the Mozilla Public License
 # Full text available at: https://www.mozilla.org/en-US/MPL/
 
-import os, time, copy, shutil
+import os, time, copy, shutil, stat
 
 from ..base.logger import Logger
 
@@ -19,6 +19,9 @@ class ECAD():
         self.repoPath = repoPath
         self.abPath = abPath
 
+    def del_rw(action, name, exc):
+        os.chmod(name, stat.S_IWRITE)
+        os.remove(name)
 
     def out(self, manifest):
         
@@ -104,7 +107,7 @@ class ECAD():
         # Copy the file to the destination directory
         shutil.copytree(exportDir,  self.repoPath + "/autobom/export/" + self.name)
 
-        shutil.rmtree(self.abPath + "/renderQueue/kicad/out/" + self.name)
+        shutil.rmtree(self.abPath + "/renderQueue/kicad/out/" + self.name, onerror=del_rw)
 
         manifest["parts"].append(part_manifest)
 
