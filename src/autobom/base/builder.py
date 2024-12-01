@@ -88,9 +88,9 @@ class Builder:
     def run(self):
         Logger.info("Autobom starting")
         # make autobom directory to start housing our goodies
-        if os.path.exists("autobom"):
+        if os.path.exists(self.repoPath + "/autobom"):
             # wipe autobom
-            shutil.rmtree("autobom")
+            shutil.rmtree(self.repoPath + "/autobom")
 
         os.makedirs(self.repoPath + "/autobom/export")
 
