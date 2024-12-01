@@ -17,12 +17,14 @@ runs:
 
     - name: Replace Github ENV Variables in Compose
       run: |
+        set -x
         sed -i "s|\${GITHUB_ACTION_PATH}|$GITHUB_ACTION_PATH|g" ${{ github.action_path }}/docker-compose.yaml
         ls
       shell: bash
 
     - name: Start Render Engines
       run: |
+        set -x
         docker compose -f ${{ github.action_path }}/docker-compose.yaml up -d
       shell: bash
 
@@ -40,7 +42,7 @@ runs:
 
     - name: Run AutoBOM
       run: |
-          cd $GITHUB_WORKSPACE
+          set -x
           uv run --project $GITHUB_ACTION_PATH autobom
       shell: bash
       env:
