@@ -19,7 +19,7 @@ class ECAD():
         self.repoPath = repoPath
         self.abPath = abPath
 
-    def del_rw(action, name, exc):
+    def del_rw(self, action, name, exc):
         os.chmod(name, stat.S_IWRITE)
         os.remove(name)
 
