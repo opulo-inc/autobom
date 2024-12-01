@@ -72,6 +72,9 @@ class Builder:
         # change to repo dir just for the sake of sanity
         os.chdir(self.repoPath)
 
+        Logger.info(f"Autobom Path: {self.abPath}")
+        Logger.info(f"Repository Path: {self.repoPath}")
+
         # Load autobom config
         c = open(self.repoPath + '/autobom.json')
         config = json.load(c)

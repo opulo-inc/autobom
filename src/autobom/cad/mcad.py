@@ -60,8 +60,13 @@ class MCAD():
 
             renderInputPath = self.abPath + "/renderQueue/freecad/in/"+self.name+".FCStd"
 
-            print(shutil.copyfile(self.path, renderInputPath)) 
+            Logger.info(os.listdir(self.abPath + "/renderQueue/freecad/in"))
 
+            Logger.info(self.path)
+
+            Logger.info(shutil.copyfile(self.path, renderInputPath)) 
+
+            Logger.info(os.listdir(self.abPath + "/renderQueue/freecad/in"))
 
             #================
             # UPDATE MANIFEST
@@ -101,15 +106,15 @@ class MCAD():
                 part_manifest["export"] = "export/" + self.part_info["name"] + ".stl"
 
             # waiting for source file to be deleted by render engine, indicating it's done, or exiting after timeout
-            print("about to start timeout")
+            Logger.info("about to start timeout")
             timeout = time.time() + 90
             while os.path.isfile(renderInputPath):
-                print("timeout ping")
+                Logger.info("timeout ping")
                 time.sleep(0.2)
                 if time.time() > timeout:
                     return False
                 
-            print("python thinks the file is gone now")
+            Logger.info("python thinks the file is gone now")
                 
             # we're here if the source file was deleted within timeout
             # now we copy files over to export
@@ -123,6 +128,7 @@ class MCAD():
                 shutil.copy(source_file,  self.repoPath + "/autobom/export")
 
                 os.remove(source_file)
+
 
             manifest["parts"].append(part_manifest)
 
