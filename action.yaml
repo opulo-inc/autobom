@@ -9,9 +9,14 @@ runs:
   using: 'composite'
   steps:
 
-    - name: Replace Github ENV Variables in Compose and Start Render Engines
+    - name: Replace Github ENV Variables in Compose
       run: |
         envsubst < $GITHUB_ACTION_PATH/docker-compose.yaml.template > $GITHUB_ACTION_PATH/docker-compose.yml
+        ls
+      shell: bash
+
+    - name: Start Render Engines
+      run: |
         docker compose -f $GITHUB_ACTION_PATH/docker-compose.yaml up -d
       shell: bash
 
