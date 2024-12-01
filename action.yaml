@@ -26,6 +26,18 @@ runs:
         docker compose -f ${{ github.action_path }}/docker-compose.yaml up -d
       shell: bash
 
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'  # You can change this version based on your needs
+
+    # Step 2: Install `uv` using pip
+    - name: Install UV package manager
+      run: |
+        python -m pip install --upgrade pip
+        pip install uv
+      shell: bash
+
     - name: Run AutoBOM
       run: |
           cd $GITHUB_WORKSPACE
