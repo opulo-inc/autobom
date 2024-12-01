@@ -9,9 +9,15 @@ runs:
   using: 'composite'
   steps:
 
+    # - name: Replace Github ENV Variables in Compose
+    #   run: |
+    #     envsubst < $GITHUB_ACTION_PATH/docker-compose.yaml.template > $GITHUB_ACTION_PATH/docker-compose.yml
+    #     ls
+    #   shell: bash
+
     - name: Replace Github ENV Variables in Compose
       run: |
-        envsubst < $GITHUB_ACTION_PATH/docker-compose.yaml.template > $GITHUB_ACTION_PATH/docker-compose.yml
+        envsubst < ${{ github.action_path }}/docker-compose.yaml.template > ${{ github.action_path }}/docker-compose.yml
         ls
       shell: bash
 
