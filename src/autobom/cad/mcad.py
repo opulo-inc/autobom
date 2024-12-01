@@ -6,26 +6,6 @@ import os, copy, glob, sys, time, shutil
 
 from ..base.logger import Logger
 
-freecad_paths = [
-    '/squashfs-root/usr/lib',
-    '/home/runner/work/feeder/feeder/squashfs-root/usr/lib',  # For CI when using AppImage
-    '/usr/lib/freecad/lib/',  # For CI
-    '/usr/lib/freecad-daily-python3/lib/',  # For Ubuntu
-    '/usr/lib64/freecad/lib64/',  # For Fedora
-    '/Applications/FreeCAD.app/Contents/MacOS/',  # For Mac OS X
-    '/Applications/FreeCAD.app/Contents/Resources/lib',  # For Mac OS X
-    '/Applications/FreeCAD.app/Contents/Resources/lib/python3.10/site-packages'
-    'c:/Program Files/FreeCAD 0.18/bin/',  # For Windows
-    'c:/Program Files/FreeCAD 0.19/bin/',  # For Windows
-]
-
-for path in freecad_paths:
-    if os.path.exists(path):
-        sys.path.append(path)
-
-import FreeCAD
-import MeshPart
-
 export_options = ["step", "stl", "all"]
 
 class MCAD():
