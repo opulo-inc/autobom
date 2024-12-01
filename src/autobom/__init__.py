@@ -13,19 +13,7 @@ from .base.builder import Builder
 
 def main():
 
-    # gets path to repository from command line argument, runs there
-    repoPath = os.environ.get('AUTOBOM_PATH')
-    os.chdir(repoPath)
-
-    # open autobom.json in current directory
-    c = open('autobom.json')
-    config = json.load(c)
-
-    # open bom.json file
-    b = open(config["bom_path"])
-    bom = json.load(b)
-
-    builder = Builder(config, bom)
+    builder = Builder()
 
     builder.run()    
 

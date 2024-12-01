@@ -30,6 +30,10 @@ mcad_filetype = [
     ".scad"
 ]
 
+ecad_filetype = [
+    ".kicad_pro"
+]
+
 class McadExportTypes(enum.IntEnum):
     NONE = 0
     STEP = 1
@@ -51,15 +55,35 @@ class EcadRenderTypes(enum.IntEnum):
     
 
 class Builder:
-    def __init__(self, config, bom):
+    def __init__(self):
         super().__init__()
+
+        # Getting github environment variables
+
+        # self.abPath is the path to the contents of the autobom repository,
+        # used mainly for copying web assets and sending files to the render engine
+        self.abPath = os.environ.get('GITHUB_ACTION_PATH', '/Users/stephen/autobom')
+
+        # self.repoPath is used to point towards where the repo itself is
+        # this is less necessary as we could just write all paths in autobom
+        # to be relative and assume we're running from there, but it's nice to be explicit
+        self.repoPath = os.environ.get('GITHUB_WORKSPACE', '.')
+
+        # change to repo dir just for the sake of sanity
+        os.chdir(self.repoPath)
+
+        # Load autobom config
+        c = open(self.repoPath + '/autobom.json')
+        config = json.load(c)
+
+        # Load bom.json file
+        b = open(self.repoPath + "/" + config["bom_path"])
+        bom = json.load(b)
 
         self.config = config
         self.bom = bom
         self.manifest = {}
-
         self.site = Site(self.config["site"])
-        
         
     def run(self):
         Logger.info("Autobom starting")
@@ -68,7 +92,7 @@ class Builder:
             # wipe autobom
             shutil.rmtree("autobom")
 
-        os.makedirs("autobom/export")
+        os.makedirs(self.repoPath + "/autobom/export")
 
         sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
         shortsha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
@@ -91,16 +115,15 @@ class Builder:
 
             if part["type"] == "mcad":
                 
-                mcad = MCAD(part, self.config, sha)
+                mcad = MCAD(part, self.config, sha, self.repoPath, self.abPath)
                 if not self.findMcad(mcad):
                     Logger.warn("Was not able to find source file for " + part['name'])
                 else:
-                
                     mcad.out(self.manifest)
 
             elif part["type"] == "ecad":
-                ecad = ECAD(part, self.config, sha)
-                if not ecad.find():
+                ecad = ECAD(part, self.config, sha, self.repoPath, self.abPath)
+                if not self.findEcad(ecad):
                     Logger.warn("Was not able to find source file for " + part['name'])
                 else:
                     ecad.out(self.manifest)
@@ -113,22 +136,21 @@ class Builder:
                 Logger.warn("Part type '" + str(part["type"]) + "' for " + str(part["name"]) + " is unknown. Skipping.")
 
         # save manifest to file
-        with open("autobom/manifest.json", "w") as outfile: 
+        with open(self.repoPath + "/autobom/manifest.json", "w") as outfile: 
             json.dump(self.manifest, outfile)
 
         self.renderSite()
 
         Logger.info("Autobom done!")
         
-        # zip up the folder
 
     def findMcad(self, mcad):
         # this function hunts for the source file, based on the part name and type
         
-        search_path = "."
+        search_path = self.repoPath
         # if there is a path from settings, use it as starting search path.
-        if "path" in self.settings["mcad"]:
-            search_path = self.settings['mcad']["path"]
+        if "path" in self.config["mcad"]:
+            search_path = self.repoPath + "/" + self.config['mcad']["path"]
     
         for root, dirs, files in os.walk(search_path):
             for name in files:
@@ -137,9 +159,28 @@ class Builder:
                     base, ext = os.path.splitext(full_path)
                     if ext.lower() in mcad_filetype:
                         Logger.info(f"Found a source file match for {mcad.part_info['name']} with {name}.")
-                        current = "./"
-                        mcad.path = os.path.relpath(full_path, current)
+                        mcad.path = full_path
                         return mcad.path
+
+        return False
+    
+    def findEcad(self, ecad):
+        # this function hunts for the source file, based on the part name and type
+        
+        search_path = self.repoPath
+        # if there is a path from settings, use it as starting search path.
+        if "path" in self.config["ecad"]:
+            search_path = self.repoPath + "/" + self.config['ecad']["path"]
+    
+        for root, dirs, files in os.walk(search_path):
+            for name in files:
+                if fnmatch.fnmatch(name, ecad.part_info["name"] + ".kicad*"):
+                    full_path = os.path.join(root, name)
+                    base, ext = os.path.splitext(full_path)
+                    if ext.lower() in ecad_filetype:
+                        ecad.path = os.path.dirname(full_path)
+                        Logger.info(f"Found a source file match for {ecad.part_info['name']} with {name}.")
+                        return ecad.path
 
         return False
 
@@ -148,11 +189,10 @@ class Builder:
         self.settings = {**default, **self.config}
 
         # copying over web assets
-        module_path = os.path.dirname(autobom.__file__)
-        shutil.copytree(module_path + "/web", "autobom/web")
+        shutil.copytree(self.abPath + "/src/autobom/web", "autobom/web")
 
         # make html file that will become our BOM
-        f = open("autobom/index.html", "w")
+        f = open(self.repoPath + "/autobom/index.html", "w")
 
         f.write(header)
 
@@ -192,10 +232,10 @@ class Builder:
 header = """
 <!DOCTYPE html>
 <head>
-    <link rel="stylesheet" href="data/web/style.css">
-    <script src="data/web/kicanvas.js"></script>
-    <script type="text/javascript" src="data/web/o3dv/o3dv.min.js"></script>
-    <script src="data/web/main.js"></script>
+    <link rel="stylesheet" href="web/style.css">
+    <script src="web/kicanvas.js"></script>
+    <script type="text/javascript" src="web/o3dv/o3dv.min.js"></script>
+    <script src="web/main.js"></script>
 </head>
 <body>
     <div id="header">

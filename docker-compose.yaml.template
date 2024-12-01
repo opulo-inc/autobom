@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  # autobom:
+  #   build:
+  #     context: .
+  #     dockerfile: Dockerfile
+  #   container_name: autobom
+  #   volumes:
+  #     - ./renderQueue:/renderQueue  # Shared folder for rendering
+  #   
+  #   depends_on:
+  #     - freecad
+  #     - kicad
+
+  freecad:
+    build:
+      context: .
+      dockerfile: ${GITHUB_ACTION_PATH}/render/Dockerfile-freecad
+    container_name: freecad
+    volumes:
+      - ${GITHUB_ACTION_PATH}/renderQueue:/renderQueue
+
+  kicad:
+    build:
+        context: .
+        dockerfile: ${GITHUB_ACTION_PATH}/render/Dockerfile-kicad
+    container_name: kicad
+    volumes:
+      - ${GITHUB_ACTION_PATH}/renderQueue:/renderQueue
+

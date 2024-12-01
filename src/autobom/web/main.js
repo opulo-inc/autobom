@@ -19,13 +19,17 @@ function updateRender(clickedElement){
 
         clickedElement.classList.add("active");
 
-        if(type == "3d"){
+        if(location.protocol === 'file:'){
+            render.innerHTML = "<img src='" + imgpath + "' />"
+
+        }
+        else if(type == "3d"){
             
             render.innerHTML = "<div class='online_3d_viewer' style='width: 100%; height: 100%;' backgroundcolor='255,255,255' model='" + threedpath + "'></div>";
             OV.SetExternalLibLocation('libs');
             // init all viewers on the page
             resp = OV.Init3DViewerElements();
-            
+
         }
         else if (type == "kicanvas"){
             // add kicanvas embed to render object

@@ -2,7 +2,7 @@
 # Published under the Mozilla Public License
 # Full text available at: https://www.mozilla.org/en-US/MPL/
 
-import os, copy, subprocess, sys, time, shutil
+import os, copy, glob, sys, time, shutil
 
 from ..base.logger import Logger
 
@@ -30,13 +30,15 @@ export_options = ["step", "stl", "all"]
 
 class MCAD():
 
-    def __init__(self, part_info, settings, sha):
+    def __init__(self, part_info, settings, sha, repoPath, abPath):
 
         self.part_info = part_info
         self.settings = settings
         self.path = None
         self.name = part_info["name"]
         self.sha = sha
+        self.repoPath = repoPath
+        self.abPath = abPath
             
 
     def out(self, manifest):
@@ -76,7 +78,10 @@ class MCAD():
             # Kick off rendering
             #================
 
-            shutil.copyfile(self.path, "/renderQueue/freecad/out/"+self.name+".FCStd")
+            renderInputPath = self.abPath + "/renderQueue/freecad/in/"+self.name+".FCStd"
+
+            print(shutil.copyfile(self.path, renderInputPath)) 
+
 
             #================
             # UPDATE MANIFEST
@@ -114,6 +119,30 @@ class MCAD():
                 part_manifest["export"] = "export/" + self.part_info["name"] + ".step"
             elif export_method == "stl":
                 part_manifest["export"] = "export/" + self.part_info["name"] + ".stl"
+
+            # waiting for source file to be deleted by render engine, indicating it's done, or exiting after timeout
+            print("about to start timeout")
+            timeout = time.time() + 90
+            while os.path.isfile(renderInputPath):
+                print("timeout ping")
+                time.sleep(0.2)
+                if time.time() > timeout:
+                    return False
+                
+            print("python thinks the file is gone now")
+                
+            # we're here if the source file was deleted within timeout
+            # now we copy files over to export
+            exportFiles = os.listdir(self.abPath + "/renderQueue/freecad/out")
+
+            for file in exportFiles:
+                # Construct the full path to the source file
+                source_file = os.path.join(self.abPath + "/renderQueue/freecad/out", file)
+
+                # Copy the file to the destination directory
+                shutil.copy(source_file,  self.repoPath + "/autobom/export")
+
+                os.remove(source_file)
 
             manifest["parts"].append(part_manifest)
 

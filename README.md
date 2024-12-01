@@ -29,6 +29,13 @@ You can try running autobom within this repository! Autobom needs three things t
 
 That's it! After running it, you'll have a newly generated folder with a webpage showing you all the parts in your BoM, and all the exported files ready for production.
 
+### Running local
+
+first, get your render engines running
+
+`docker-compose -f docker-compose-local.yaml up -d'
+
+
 ## References and Dependencies
 
 - [KiCanvas](https://kicanvas.org/)

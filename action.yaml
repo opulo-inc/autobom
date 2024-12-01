@@ -9,13 +9,24 @@ runs:
   using: 'composite'
   steps:
 
-    - name: Start Render Engines
-      run: docker compose up -d
+    - name: Replace Github ENV Variables in Compose and Start Render Engines
+      run: |
+        envsubst < $GITHUB_ACTION_PATH/docker-compose.yaml.template > $GITHUB_ACTION_PATH/docker-compose.yml
+        docker-compose -f $GITHUB_ACTION_PATH/docker-compose.yaml up -d
       shell: bash
 
     - name: Run AutoBOM
-      run: uv run autobom
+      run: |
+          cd $GITHUB_WORKSPACE
+          uv run --project $GITHUB_ACTION_PATH autobom
       shell: bash
       env:
-        REPO: ${{ inputs.repo-ref}}
+        GITHUB_ACTION_PATH: $GITHUB_ACTION_PATH  # The action's path
+        GITHUB_WORKSPACE: $GITHUB_WORKSPACE    # The user's repo workspace
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v3
+      with:
+        name: Autobom
+        path: ./autobom
 

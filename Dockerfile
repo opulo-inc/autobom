@@ -34,8 +34,6 @@ ENV PATH="/root/.local/bin/:$PATH"
 # # Copies your code file from your action repository to the filesystem path `/` of the container
 COPY . /autobom
 
-# Clone repo into /data/autobom
-RUN git clone git://github.com/opulo-inc/paste-extruder.git repo
 
 WORKDIR /autobom/repo
 

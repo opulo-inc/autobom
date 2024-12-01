@@ -1,0 +1,81 @@
+# Copyright (c) 2024 Opulo, Inc
+# Published under the Mozilla Public License
+# Full text available at: https://www.mozilla.org/en-US/MPL/
+
+# BUILD:
+#   docker build -t freecad -f Dockerfile-freecad .
+
+# RUN:
+#   docker run -it --rm freecad
+# with volume mounted
+#   docker run -v ./renderQueue:/renderQueue -it --rm freecad (container path should really be /renderQueue/)
+
+FROM ubuntu:20.04
+
+# ---------------
+# DEPENDENCY INSTALL
+# ---------------
+
+# install add-apt-repository and wget to install other stuff
+RUN apt update && \
+    apt-get -y install software-properties-common wget curl && \
+    apt update
+
+# install python, lots of dependencies
+RUN apt-get update && \
+    apt-get -y install --no-install-recommends git make bzip2 librsvg2-bin ghostscript && \
+    apt-get -y install --no-install-recommends imagemagick python3-qrcodegen poppler-utils python3-requests python3-xlsxwriter python3-mistune && \
+    apt -y install --no-install-recommends python3-click python3-markdown2 python3-numpy python3-shapely
+
+# ---------------
+# OPENSCAD INSTALL
+# ---------------
+
+# installs openscad from ppa, plus xvfb for rendering with openscad
+RUN add-apt-repository ppa:openscad/releases && \
+    apt update && \
+    apt-get -y install openscad xvfb
+
+# ---------------
+# FREECAD INSTALL
+# ---------------
+
+# # Install x86 FreeCAD
+# RUN wget https://github.com/FreeCAD/FreeCAD/releases/download/0.21.2/FreeCAD-0.21.2-Linux-x86_64.AppImage -O /FreeCAD_x86.AppImage && \
+#     chmod +x /FreeCAD_x86.AppImage && \
+#     ./FreeCAD_x86.AppImage --appimage-extract > /dev/null
+
+# # Install ARM FreeCAD
+# RUN wget https://github.com/FreeCAD/FreeCAD/releases/download/0.21.2/FreeCAD-0.21.2-Linux-aarch64.AppImage -O /FreeCAD_ARM.AppImage && \
+#     chmod +x /FreeCAD_ARM.AppImage && \    
+#     ./FreeCAD_ARM.AppImage --appimage-extract > /dev/null
+
+# Install ARM FreeCAD 1.0
+RUN wget https://github.com/FreeCAD/FreeCAD/releases/download/1.0.0/FreeCAD_1.0.0-conda-Linux-aarch64-py311.AppImage -O /FreeCAD_ARM.AppImage && \
+    chmod +x /FreeCAD_ARM.AppImage && \    
+    ./FreeCAD_ARM.AppImage --appimage-extract > /dev/null
+
+    
+
+# ---------------
+# UV INSTALL
+# ---------------
+
+# download and run uv installer
+ADD --chmod=755 https://astral.sh/uv/install.sh /install.sh
+RUN /install.sh && rm /install.sh
+
+# Add uv to path
+ENV PATH="/root/.local/bin/:$PATH"
+
+# ---------------
+# Directory Setup
+# ---------------
+
+# copies autobom dir into /autobom in container
+COPY . /autobom
+
+# runs prep scrip that runs xvfb server, exports DISPLAY, and runs the python script
+CMD ["/autobom/render/mcad-entry.sh"]
+
+# CMD ["echo", "'out=success'", ">>", "$GITHUB_OUTPUT"] 
