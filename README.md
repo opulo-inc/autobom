@@ -60,8 +60,7 @@ Here's a rough breakdown of what's in this repo
 
 - `./render` contains scripts, Dockerfiles, and other assets used for spinning up the render engines. These are the docker containers whose sole purpose is to do the actual work of exporting files from various CAD packages.
   - `Dockerfile-freecad-gha` defines the container for the freecad "render engine" when running in Github Actions, a standalone container that runs freecad (and openscad) whos sole purpose is to process openscad and freecad source files and export their stls, steps, and rendered images. it depends on there being a `/renderQueue` directory mounted. Note that there's also a `Dockerfile-freecad-local` meant to be used when testing on Apple Silicon.
-  - `Dockerfile-kicad` is the same as above, but with kicad! instead of dropping individual files into `/renderQueue/kicad/in`, instead drop in a whole project directory
-  - `Dockerfile` is an attempt at making a container that actually runs autobom. might not be needed? not sure.
+  - `Dockerfile-kicad` is the same as above, but with kicad! instead of dropping individual files into `/renderQueue/kicad/in`, instead drop in a whole project directory.
   - `./docker-compose-local.yaml` is a docker compose file meant to be run on a Mac with Apple ARM silicon. It just chooses a different Freecad Dockerfile because of some archtecture nightmares.
   - `./docker-compose.yaml` is the main docker compose file meant to be run in the Github Action. It uses the `x86_64` FreeCAD Dockerfile.
 - `./renderQueue` is a folder that the "render engine" docker containers use to find parts to export, and a place for them to drop the exported assets.
@@ -73,3 +72,5 @@ TODO:
 - render engines need to be robust to stuff failing, currently just dies if it doesnt find a body named "Body" in freecad file, for instance.
 - kicad exported files arent deleted from `kicad/out` after copied to the export folder, this fails in the CI for some reason
 - openscad has not been fully tested in CI
+- logging is messy
+- generally needs a refactor, chunks of logic have moved around with reckless abandon, now that things are a bit more stable the general structure of the autobom python codebase needs a refresh
