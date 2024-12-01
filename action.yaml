@@ -21,14 +21,13 @@ runs:
     - name: Replace Github ENV Variables in Compose
       run: |
         set -x
-        sed -i "s|\${GITHUB_ACTION_PATH}|$GITHUB_ACTION_PATH|g" ${{ github.action_path }}/docker-compose.yaml
-        ls
+        sed -i "s|\${GITHUB_ACTION_PATH}|$GITHUB_ACTION_PATH|g" ${{ github.action_path }}/render/docker-compose.yaml
       shell: bash
 
     - name: Start Render Engines
       run: |
         set -x
-        docker compose -f ${{ github.action_path }}/docker-compose.yaml up -d
+        docker compose -f ${{ github.action_path }}/render/docker-compose.yaml up -d
       shell: bash
 
     - name: Set up Python
@@ -43,12 +42,6 @@ runs:
         pip install uv
       shell: bash
 
-    - name: peepin docker
-      run: |
-        set -x
-        docker compose -f ${{ github.action_path }}/docker-compose.yaml ps
-      shell: bash
-
     - name: Run AutoBOM
       run: |
           set -x
@@ -57,12 +50,6 @@ runs:
       env:
         GITHUB_ACTION_PATH: $GITHUB_ACTION_PATH  # The action's path
         GITHUB_WORKSPACE: $GITHUB_WORKSPACE    # The user's repo workspace
-
-    - name: peepin docker
-      run: |
-        set -x
-        docker compose -f ${{ github.action_path }}/docker-compose.yaml ps
-      shell: bash
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
