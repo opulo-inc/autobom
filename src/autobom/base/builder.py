@@ -72,9 +72,6 @@ class Builder:
         # change to repo dir just for the sake of sanity
         os.chdir(self.repoPath)
 
-        Logger.info(f"Autobom Path: {self.abPath}")
-        Logger.info(f"Repository Path: {self.repoPath}")
-
         # Load autobom config
         c = open(self.repoPath + '/autobom.json')
         config = json.load(c)
@@ -96,6 +93,9 @@ class Builder:
             shutil.rmtree("autobom")
 
         os.makedirs(self.repoPath + "/autobom/export")
+
+        Logger.info(f"Autobom Path: {self.abPath}")
+        Logger.info(f"Repository Path: {self.repoPath}")
 
         sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
         shortsha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
@@ -161,7 +161,7 @@ class Builder:
                     full_path = os.path.join(root, name)
                     base, ext = os.path.splitext(full_path)
                     if ext.lower() in mcad_filetype:
-                        Logger.info(f"Found a source file match for {mcad.part_info['name']} with {name}.")
+                        Logger.info(f"Found a source file match for {mcad.part_info['name']} with name {name}.")
                         mcad.path = full_path
                         return mcad.path
 

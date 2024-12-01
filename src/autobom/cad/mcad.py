@@ -52,90 +52,95 @@ class MCAD():
 
 
     def outFreecad(self, render_method, export_method, manifest):
-        # Freecad exporting
-        try:
-            #================
-            # Kick off rendering
-            #================
+        Logger.info("ok, we're in outFreecad!")
+    
+        #================
+        # Kick off rendering
+        #================
 
-            renderInputPath = self.abPath + "/renderQueue/freecad/in/"+self.name+".FCStd"
+        renderInputPath = self.abPath + "/renderQueue/freecad/in/"+self.name+".FCStd"
 
-            Logger.info(os.listdir(self.abPath + "/renderQueue/freecad/in"))
+        Logger.info("ok, here's renderInputPath")
+        Logger.info(renderInputPath)
 
-            Logger.info(self.path)
+        Logger.info("ok, we're in outFreecad!")
 
-            Logger.info(shutil.copyfile(self.path, renderInputPath)) 
+        Logger.info("ok, here's everything in the freecad/in folder")
 
-            Logger.info(os.listdir(self.abPath + "/renderQueue/freecad/in"))
+        Logger.info(os.listdir(self.abPath + "/renderQueue/freecad/in"))
+        Logger.info("ok, here's the files path")
 
-            #================
-            # UPDATE MANIFEST
-            #================
+        Logger.info(self.path)
 
-            part_manifest = copy.deepcopy(self.part_info)
+        Logger.info(shutil.copyfile(self.path, renderInputPath)) 
 
-            render = {"method_preference": "", "img_path": "", "3d_path": ""}
+        Logger.info(os.listdir(self.abPath + "/renderQueue/freecad/in"))
 
-            if render_method == "src":
-                # this is easy, it's just pulling the github link! no sweat!
-                repo = self.settings['source_url']
+        #================
+        # UPDATE MANIFEST
+        #================
 
-                ghlink = repo + "/blob/" + self.sha + "/" + self.path
+        part_manifest = copy.deepcopy(self.part_info)
 
-                # correctly formatted gh link for reference
-                # https://github.com/opulo-inc/lumenpnp/blob/be58b3eeba5aecb69e166f0e397c5b0ebc95fa33/pnp/cad/FDM/y-gantry.FCStd
-                
-                render["method_preference"] = "3d"
-                render["3d_path"] = ghlink
-                render["img_path"] = "export/" + self.part_info["name"] + ".png"
+        render = {"method_preference": "", "img_path": "", "3d_path": ""}
 
-            elif render_method == "img":
-                render["method_preference"] = "img"
-                render["img_path"] = "export/" + self.part_info["name"] + ".png"
-            else:
-                # just put whatever the user dropped in as the render link
-                # TODO should download this and package this image locally
-                render["method_preference"] = "img"
-                render["img_path"] = render_method
+        if render_method == "src":
+            # this is easy, it's just pulling the github link! no sweat!
+            repo = self.settings['source_url']
 
-            part_manifest["render"] = render
+            ghlink = repo + "/blob/" + self.sha + "/" + self.path
+
+            # correctly formatted gh link for reference
+            # https://github.com/opulo-inc/lumenpnp/blob/be58b3eeba5aecb69e166f0e397c5b0ebc95fa33/pnp/cad/FDM/y-gantry.FCStd
             
-            if export_method == "step":
-                part_manifest["export"] = "export/" + self.part_info["name"] + ".step"
-            elif export_method == "stl":
-                part_manifest["export"] = "export/" + self.part_info["name"] + ".stl"
+            render["method_preference"] = "3d"
+            render["3d_path"] = ghlink
+            render["img_path"] = "export/" + self.part_info["name"] + ".png"
 
-            # waiting for source file to be deleted by render engine, indicating it's done, or exiting after timeout
-            Logger.info("about to start timeout")
-            timeout = time.time() + 90
-            while os.path.isfile(renderInputPath):
-                Logger.info("timeout ping")
-                time.sleep(0.2)
-                if time.time() > timeout:
-                    return False
-                
-            Logger.info("python thinks the file is gone now")
-                
-            # we're here if the source file was deleted within timeout
-            # now we copy files over to export
-            exportFiles = os.listdir(self.abPath + "/renderQueue/freecad/out")
+        elif render_method == "img":
+            render["method_preference"] = "img"
+            render["img_path"] = "export/" + self.part_info["name"] + ".png"
+        else:
+            # just put whatever the user dropped in as the render link
+            # TODO should download this and package this image locally
+            render["method_preference"] = "img"
+            render["img_path"] = render_method
 
-            for file in exportFiles:
-                # Construct the full path to the source file
-                source_file = os.path.join(self.abPath + "/renderQueue/freecad/out", file)
+        part_manifest["render"] = render
+        
+        if export_method == "step":
+            part_manifest["export"] = "export/" + self.part_info["name"] + ".step"
+        elif export_method == "stl":
+            part_manifest["export"] = "export/" + self.part_info["name"] + ".stl"
 
-                # Copy the file to the destination directory
-                shutil.copy(source_file,  self.repoPath + "/autobom/export")
+        # waiting for source file to be deleted by render engine, indicating it's done, or exiting after timeout
+        Logger.info("about to start timeout")
+        timeout = time.time() + 90
+        while os.path.isfile(renderInputPath):
+            Logger.info("timeout ping")
+            time.sleep(0.2)
+            if time.time() > timeout:
+                return False
+            
+        Logger.info("python thinks the file is gone now")
+            
+        # we're here if the source file was deleted within timeout
+        # now we copy files over to export
+        exportFiles = os.listdir(self.abPath + "/renderQueue/freecad/out")
 
-                os.remove(source_file)
+        for file in exportFiles:
+            # Construct the full path to the source file
+            source_file = os.path.join(self.abPath + "/renderQueue/freecad/out", file)
+
+            # Copy the file to the destination directory
+            shutil.copy(source_file,  self.repoPath + "/autobom/export")
+
+            os.remove(source_file)
 
 
-            manifest["parts"].append(part_manifest)
+        manifest["parts"].append(part_manifest)
 
-            return True
-        except Exception as e:
-            print(e)
-            return False
+        return True
 
     def outOpenscad(self, render_method, export_method, manifest):
         # Openscad exporting

@@ -25,8 +25,8 @@ class Logger:
 
     @classmethod
     def warn(self, msg):
-        logging.warning(f"{bcolors.WARNING}WARN{bcolors.ENDC}" + " - " + str(datetime.datetime.now()) + " - " + msg)
+        logging.warning(f"{bcolors.WARNING}WARN{bcolors.ENDC}" + " - " + str(datetime.datetime.now()) + " - " + str(msg))
 
     @classmethod
     def info(self, msg):
-        logging.info(f"{bcolors.OKCYAN}INFO{bcolors.ENDC}" + " - " + str(datetime.datetime.now()) + " - " + msg)
+        logging.info(f"{bcolors.OKCYAN}INFO{bcolors.ENDC}" + " - " + str(datetime.datetime.now()) + " - " + str(msg))
