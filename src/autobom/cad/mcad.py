@@ -65,16 +65,16 @@ class MCAD():
 
         Logger.info("ok, we're in outFreecad!")
 
-        Logger.info("ok, here's everything in the freecad/in folder")
+        Logger.info("ok, lets see if freecad/in is a valid folder")
 
-        Logger.info(os.listdir(self.abPath + "/renderQueue/freecad/in"))
+        Logger.info(os.path.isdir(self.abPath + "/renderQueue/freecad/in"))
+
         Logger.info("ok, here's the files path")
 
         Logger.info(self.path)
 
         Logger.info(shutil.copyfile(self.path, renderInputPath)) 
 
-        Logger.info(os.listdir(self.abPath + "/renderQueue/freecad/in"))
 
         #================
         # UPDATE MANIFEST
