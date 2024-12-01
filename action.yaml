@@ -17,13 +17,13 @@ runs:
 
     - name: Replace Github ENV Variables in Compose
       run: |
-        envsubst < ${{ github.action_path }}/docker-compose.yaml.template > ${{ github.action_path }}/docker-compose.yml
+        sed -i "s|\${GITHUB_ACTION_PATH}|$GITHUB_ACTION_PATH|g" ${{ github.action_path }}/docker-compose.yaml
         ls
       shell: bash
 
     - name: Start Render Engines
       run: |
-        docker compose -f $GITHUB_ACTION_PATH/docker-compose.yaml up -d
+        docker compose -f ${{ github.action_path }}/docker-compose.yaml up -d
       shell: bash
 
     - name: Run AutoBOM
