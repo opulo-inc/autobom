@@ -107,7 +107,7 @@ class ECAD():
         # Copy the file to the destination directory
         shutil.copytree(exportDir,  self.repoPath + "/autobom/export/" + self.name)
 
-        shutil.rmtree(self.abPath + "/renderQueue/kicad/out/" + self.name, onerror=del_rw)
+        shutil.rmtree(self.abPath + "/renderQueue/kicad/out/" + self.name, onerror=self.del_rw)
 
         manifest["parts"].append(part_manifest)
 

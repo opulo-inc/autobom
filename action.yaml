@@ -46,7 +46,6 @@ runs:
     - name: Run AutoBOM
       run: |
           set -x
-          ls $GITHUB_WORKSPACE
           uv run --project $GITHUB_ACTION_PATH autobom
       shell: bash
       env:

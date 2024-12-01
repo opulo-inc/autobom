@@ -6,7 +6,7 @@
 The Logger class just makes things print to the command line nice and pretty.
 """
 
-import datetime
+import datetime, logging
 
 class bcolors:
     HEADER = '\033[95m'
@@ -25,8 +25,8 @@ class Logger:
 
     @classmethod
     def warn(self, msg):
-        print(f"{bcolors.WARNING}WARN{bcolors.ENDC}" + " - " + str(datetime.datetime.now()) + " - " + msg)
+        logging.warning(f"{bcolors.WARNING}WARN{bcolors.ENDC}" + " - " + str(datetime.datetime.now()) + " - " + msg)
 
     @classmethod
     def info(self, msg):
-        print(f"{bcolors.OKCYAN}INFO{bcolors.ENDC}" + " - " + str(datetime.datetime.now()) + " - " + msg)
+        logging.info(f"{bcolors.OKCYAN}INFO{bcolors.ENDC}" + " - " + str(datetime.datetime.now()) + " - " + msg)
