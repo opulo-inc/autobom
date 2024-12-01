@@ -12,7 +12,7 @@ runs:
     - name: Replace Github ENV Variables in Compose and Start Render Engines
       run: |
         envsubst < $GITHUB_ACTION_PATH/docker-compose.yaml.template > $GITHUB_ACTION_PATH/docker-compose.yml
-        docker-compose -f $GITHUB_ACTION_PATH/docker-compose.yaml up -d
+        docker compose -f $GITHUB_ACTION_PATH/docker-compose.yaml up -d
       shell: bash
 
     - name: Run AutoBOM
