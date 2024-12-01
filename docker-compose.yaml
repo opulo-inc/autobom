@@ -16,7 +16,7 @@ services:
   freecad:
     build:
       context: .
-      dockerfile: ${GITHUB_ACTION_PATH}/render/Dockerfile-freecad
+      dockerfile: ${GITHUB_ACTION_PATH}/render/Dockerfile-freecad-gha
     container_name: freecad
     volumes:
       - ${GITHUB_ACTION_PATH}/renderQueue:/renderQueue

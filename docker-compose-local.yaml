@@ -16,7 +16,7 @@ services:
   freecad:
     build:
       context: .
-      dockerfile: render/Dockerfile-freecad
+      dockerfile: render/Dockerfile-freecad-local
     container_name: freecad
     volumes:
       - ./renderQueue:/renderQueue
