@@ -74,3 +74,8 @@ TODO:
 - openscad has not been fully tested in CI
 - logging is messy
 - generally needs a refactor, chunks of logic have moved around with reckless abandon, now that things are a bit more stable the general structure of the autobom python codebase needs a refresh
+
+helpful:
+- https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs#github-context
+- https://docs.github.com/en/actions/sharing-automations/creating-actions/metadata-syntax-for-github-actions
+- https://docs.github.com/en/actions/sharing-automations/creating-actions/creating-a-docker-container-action
