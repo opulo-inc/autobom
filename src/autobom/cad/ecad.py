@@ -2,9 +2,14 @@
 # Published under the Mozilla Public License
 # Full text available at: https://www.mozilla.org/en-US/MPL/
 
-import os, time, copy, shutil, stat
+import os, time, copy, shutil, stat, socket, uuid
 
 from ..base.logger import Logger
+from ..base.socket_protocol import (
+    get_ecad_socket_address,
+    send_message, receive_message,
+    create_request, STATUS_SUCCESS, STATUS_FAILURE
+)
 
 
 class ECAD():
@@ -24,7 +29,7 @@ class ECAD():
         os.remove(name)
 
     def out(self, manifest):
-        
+        """Export/render this part. Returns True on success, False on failure."""
         #using default settings, but allowing part-specific to override
         render_method = self.settings["ecad"]["render"]
         if "render" in self.part_info:
@@ -34,32 +39,110 @@ class ECAD():
         if "export" in self.part_info:
             export_method = self.part_info["export"]
 
-
-        # checking type
-
         if os.path.isfile(self.path + "/" + self.name + ".kicad_pro"):
             if self.outKicad(render_method, export_method, manifest):
                 Logger.info(f"Exported and rendered {self.part_info['name']}")
-            else:
-                Logger.warn(f"Failed to export or render {self.part_info['name']}")
+                return True
+            Logger.warn(f"Failed to export or render {self.part_info['name']}")
+            return False
 
-        else:
-            Logger.warn(f'Found file {base}{ext} but {ext} files are not supported.')
+        Logger.warn(f"No supported KiCAD project found for {self.part_info['name']}")
+        return False
 
 
     def outKicad(self, render_method, export_method, manifest):
-        # Freecad exporting
+        Logger.info(f"Rendering KiCAD project: {self.name}")
     
-        #================
-        # Kick off rendering
-        #================
-
+        # Copy project directory to render queue input directory
         renderInputPath = self.abPath + "/renderQueue/kicad/in/" + self.name
-
+        os.makedirs(os.path.dirname(renderInputPath), exist_ok=True)
+        # Remove existing directory if it exists (from previous failed run)
+        if os.path.exists(renderInputPath):
+            shutil.rmtree(renderInputPath)
         shutil.copytree(self.path, renderInputPath)
 
-        # update manifest
+        # Generate unique request ID
+        request_id = str(uuid.uuid4())
+        
+        # Connect to render server via TCP socket
+        host, port = get_ecad_socket_address(self.abPath)
+        
+        # Wait for server to be ready (try connecting a few times)
+        max_retries = 20
+        retry_interval = 0.5
+        client_sock = None
+        
+        for attempt in range(max_retries):
+            try:
+                client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                client_sock.settimeout(2)
+                client_sock.connect((host, port))
+                client_sock.settimeout(120)  # Set longer timeout for actual communication
+                break
+            except (ConnectionRefusedError, OSError):
+                if client_sock:
+                    client_sock.close()
+                if attempt < max_retries - 1:
+                    time.sleep(retry_interval)
+                else:
+                    Logger.warn(f"Could not connect to render server at {host}:{port} after {max_retries} attempts.")
+                    Logger.warn("Make sure Docker containers are running: docker-compose up -d")
+                    return False
+        
+        try:
+            
+            # Send render request
+            request = create_request(
+                "render",
+                self.name,
+                request_id=request_id
+            )
+            send_message(client_sock, request)
+            Logger.info(f"Sent render request for {self.name}")
+            
+            # Wait for response
+            response = receive_message(client_sock)
+            client_sock.close()
+            
+            if not response:
+                Logger.warn(f"No response received for {self.name}")
+                return False
+            
+            if response.get("status") != STATUS_SUCCESS:
+                error_msg = response.get("error", "Unknown error")
+                Logger.warn(f"Render failed for {self.name}: {error_msg}")
+                return False
+            
+            Logger.info(f"Render completed successfully for {self.name}")
+            
+        except socket.timeout:
+            Logger.warn(f"Timeout waiting for render response for {self.name}")
+            return False
+        except ConnectionRefusedError:
+            Logger.warn(f"Connection refused to render server at {host}:{port}.")
+            Logger.warn("The server isn't accepting connections.")
+            Logger.warn("Check container logs: docker-compose -f docker-compose-local.yaml logs kicad")
+            return False
+        except Exception as e:
+            Logger.warn(f"Error communicating with render server for {self.name}: {str(e)}")
+            Logger.warn(f"Check container logs: docker-compose -f docker-compose-local.yaml logs")
+            return False
 
+        # Copy output files to export directory
+        try:
+            exportDir = self.abPath + "/renderQueue/kicad/out/" + self.name
+            if os.path.exists(exportDir):
+                shutil.copytree(exportDir, self.repoPath + "/autobom/export/" + self.name)
+                # Clean up output directory
+                try:
+                    shutil.rmtree(exportDir, onerror=self.del_rw)
+                except:
+                    pass
+        except Exception as e:
+            Logger.warn(f"Error copying export files for {self.name}: {str(e)}")
+            return False
+
+        # update manifest
         part_manifest = copy.deepcopy(self.part_info)
 
         render = {"method_preference": "", "img_path": "", "3d_path": ""}
@@ -91,23 +174,6 @@ class ECAD():
             part_manifest["export"] = "export/" + self.part_info["name"] + ".step"
         elif export_method == "stl":
             part_manifest["export"] = "export/" + self.part_info["name"] + ".step"
-
-
-        # waiting for source file to be deleted by render engine, indicating it's done, or exiting after timeout
-        timeout = time.time() + 90
-        while os.path.isdir(renderInputPath):
-            time.sleep(0.2)
-            if time.time() > timeout:
-                return False
-            
-        # we're here if the source file was deleted within timeout
-        # now we copy files over to export
-        exportDir = self.abPath + "/renderQueue/kicad/out/" + self.name
-
-        # Copy the file to the destination directory
-        shutil.copytree(exportDir,  self.repoPath + "/autobom/export/" + self.name)
-
-        #shutil.rmtree(self.abPath + "/renderQueue/kicad/out/" + self.name, onerror=self.del_rw)
 
         manifest["parts"].append(part_manifest)
 

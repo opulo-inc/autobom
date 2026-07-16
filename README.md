@@ -23,13 +23,91 @@ There are only a handful of CAD packages that we can support, given that all thi
 
 ### Running in Github Actions
 
-Autobom is designed to be run automatically using Github Actions. It's simple to set up your hardware repository to work with Autobom. You just need three things:
+1. In your hardware repo root, add `autobom.json` and a BOM file (see [Config](#config) below).
+2. Copy [`examples/autobom.workflow.yaml`](examples/autobom.workflow.yaml) to `.github/workflows/autobom.yaml` (or paste the snippet below).
+3. Ensure render images are published for the tag you pin (see [Publish images](#publish-images)). On first use after a release, run the **Publish render engine images** workflow in this repo if needed.
+4. Push a release or run the workflow via **workflow_dispatch**. AutoBOM uploads an `Autobom` artifact containing exports, renders, `index.html`, and `manifest.json`.
 
-1. An `autobom.json` file in the root of your repository. This contains settings about how to perform the export.
-2. A bill of materials! This can be named and placed wherever you'd like, as the name is specified in `autobom.json`. It must conform to the expected format. All items in the BOM must have their soruce files *somewhere* in the repository. It will hunt for the correct files based on the cad type and part name, but you can be more explicit if you'd like.
-3. Add the `autobom.yaml` file to your repo in the `.github/workflows` folder.
+```yaml
+name: AutoBOM
 
-That's it! Now, when you publish a release or request Autobom to run as a workflow dispatch, it'll generate the zipped export of your source and upload it as an Artifact.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  autobom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: opulo-inc/autobom@v0.2.0
+        with:
+          image-tag: latest
+```
+
+Pin a release tag (`@v0.2.0`) rather than `@main` for reproducible builds.
+
+### Config
+
+**`autobom.json`** (repo root):
+
+```json
+{
+  "source_url": "https://github.com/org/your-hardware-repo",
+  "bom_path": "bom.json",
+  "mcad": {
+    "export": "step",
+    "render": "src",
+    "path": "mcad"
+  },
+  "ecad": {
+    "export": "gerber",
+    "render": "src",
+    "path": "ecad"
+  },
+  "site": {
+    "colors": {
+      "primary": "daa520",
+      "secondary": "af8000"
+    }
+  }
+}
+```
+
+**`bom.json`** (path from `bom_path`):
+
+```json
+{
+  "name": "MyProduct",
+  "version": "v1.0.0",
+  "parts": [
+    {
+      "name": "my-bracket",
+      "quantity": 2,
+      "type": "mcad",
+      "optional": false,
+      "source": "https://example.com",
+      "notes": ""
+    },
+    {
+      "name": "main-board",
+      "quantity": 1,
+      "type": "ecad",
+      "optional": false,
+      "source": "https://example.com",
+      "notes": ""
+    }
+  ]
+}
+```
+
+- `type`: `mcad` (FreeCAD `.FCStd` / OpenSCAD `.scad`) or `ecad` (KiCAD `.kicad_pro`)
+- `name` must match the source filename / KiCAD project name
+- `optional: true` skips failing that part without failing the whole job
+- CAD sources are searched under `mcad.path` / `ecad.path` if set, otherwise the whole repo
+
+See also [opulo-inc/example-autobom-project](https://github.com/opulo-inc/example-autobom-project).
 
 ### Running local
 
@@ -37,13 +115,26 @@ This assumes this is being run on Apple ARM silicon.
 
 1. Get render engines running. From autobom repo root, run:
   
-    `docker-compose -f docker-compose-local.yaml up -d`
+    `docker compose -f docker-compose-local.yaml up -d --build`
 
 2. Run Autobom. `cd` to the project repo root, and run:
 
     `uv run --project /path/to/autobom/repo autobom`
 
 3. You'll get a shiny new `autobom` folder in the root of the project repo with all the exported files.
+
+To export STEP from every FreeCAD file in a tree:
+
+    `uv run --project /path/to/autobom/repo export-freecad`
+
+### Publish images
+
+GitHub Actions uses prebuilt images:
+
+- `ghcr.io/opulo-inc/autobom-freecad`
+- `ghcr.io/opulo-inc/autobom-kicad`
+
+They are built by [`.github/workflows/publish-images.yml`](.github/workflows/publish-images.yml) on pushes to `main`, version tags, or manual `workflow_dispatch`. Packages must be public (or the consumer workflow must authenticate to GHCR) for `docker pull` to work in other repos.
 
 ## References and Dependencies
 
@@ -59,23 +150,17 @@ This assumes this is being run on Apple ARM silicon.
 Here's a rough breakdown of what's in this repo
 
 - `./render` contains scripts, Dockerfiles, and other assets used for spinning up the render engines. These are the docker containers whose sole purpose is to do the actual work of exporting files from various CAD packages.
-  - `Dockerfile-freecad-gha` defines the container for the freecad "render engine" when running in Github Actions, a standalone container that runs freecad (and openscad) whos sole purpose is to process openscad and freecad source files and export their stls, steps, and rendered images. it depends on there being a `/renderQueue` directory mounted. Note that there's also a `Dockerfile-freecad-local` meant to be used when testing on Apple Silicon.
-  - `Dockerfile-kicad` is the same as above, but with kicad! instead of dropping individual files into `/renderQueue/kicad/in`, instead drop in a whole project directory.
-  - `./docker-compose-local.yaml` is a docker compose file meant to be run on a Mac with Apple ARM silicon. It just chooses a different Freecad Dockerfile because of some archtecture nightmares.
-  - `./docker-compose.yaml` is the main docker compose file meant to be run in the Github Action. It uses the `x86_64` FreeCAD Dockerfile.
-- `./renderQueue` is a folder that the "render engine" docker containers use to find parts to export, and a place for them to drop the exported assets.
+  - `Dockerfile-freecad-gha` defines the container for the freecad "render engine" when running in Github Actions (x86_64 FreeCAD AppImage).
+  - `Dockerfile-freecad-local` is for Apple Silicon local testing.
+  - `Dockerfile-kicad` runs KiBot against a whole KiCAD project directory.
+  - `./docker-compose-local.yaml` builds images locally for Mac ARM.
+  - `./docker-compose.yaml` pulls GHCR images for the Github Action.
+- `./renderQueue` is a folder that the render engine docker containers use to exchange source/export files with the host.
 - `./src` is where all the Autobom python source exists. This is what generates the website, parses the bom and config files, finds the source files, and makes decisions about what files get rendered where.
-- `./action.yaml` is the file Github looks for when folks call our action! This is the heart of the whole thing, the file that decides what gets run on Github's server.
-
+- `./action.yaml` is the composite Github Action entrypoint.
+- Builder ↔ renderers talk over TCP (JSON length-prefixed messages) on ports 9001 (MCAD) and 9002 (ECAD).
 
 TODO:
-- render engines need to be robust to stuff failing, currently just dies if it doesnt find a body named "Body" in freecad file, for instance.
-- kicad exported files arent deleted from `kicad/out` after copied to the export folder, this fails in the CI for some reason
 - openscad has not been fully tested in CI
 - logging is messy
 - generally needs a refactor, chunks of logic have moved around with reckless abandon, now that things are a bit more stable the general structure of the autobom python codebase needs a refresh
-
-helpful:
-- https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/accessing-contextual-information-about-workflow-runs#github-context
-- https://docs.github.com/en/actions/sharing-automations/creating-actions/metadata-syntax-for-github-actions
-- https://docs.github.com/en/actions/sharing-automations/creating-actions/creating-a-docker-container-action

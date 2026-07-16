@@ -1,4 +1,4 @@
 #!/bin/sh
 
 cd /autobom/render
-uv run ecad_renderer.py
+exec uv run python ecad_renderer.py

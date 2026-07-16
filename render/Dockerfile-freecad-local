@@ -50,9 +50,9 @@ RUN add-apt-repository ppa:openscad/releases && \
 #     chmod +x /FreeCAD_ARM.AppImage && \    
 #     ./FreeCAD_ARM.AppImage --appimage-extract > /dev/null
 
-# Install ARM FreeCAD 1.0
-RUN wget https://github.com/FreeCAD/FreeCAD/releases/download/1.0.0/FreeCAD_1.0.0-conda-Linux-aarch64-py311.AppImage -O /FreeCAD_ARM.AppImage && \
-    chmod +x /FreeCAD_ARM.AppImage && \    
+# Install ARM FreeCAD 1.1.1 (must match FCStd files saved from 1.1.x)
+RUN wget https://github.com/FreeCAD/FreeCAD/releases/download/1.1.1/FreeCAD_1.1.1-Linux-aarch64-py311.AppImage -O /FreeCAD_ARM.AppImage && \
+    chmod +x /FreeCAD_ARM.AppImage && \
     ./FreeCAD_ARM.AppImage --appimage-extract > /dev/null
 
     

@@ -1,0 +1,31 @@
+# Copy this file to your hardware repo as:
+#   .github/workflows/autobom.yaml
+#
+# Requires in your repo root:
+#   - autobom.json
+#   - a BOM file (path set in autobom.json, e.g. bom.json)
+#   - CAD sources somewhere in the repo (FreeCAD .FCStd and/or KiCAD projects)
+
+name: AutoBOM
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  autobom:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout hardware repo
+        uses: actions/checkout@v4
+
+      - name: Run AutoBOM
+        uses: opulo-inc/autobom@v0.2.0
+        # Or pin a commit SHA / use @main while iterating:
+        # uses: opulo-inc/autobom@main
+        with:
+          image-tag: latest
+
+      # Artifact "Autobom" is uploaded by the action (autobom/ folder:
+      # exports, renders, index.html, manifest.json).

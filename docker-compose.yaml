@@ -1,31 +1,16 @@
-version: '3.8'
-
 services:
-  # autobom:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile
-  #   container_name: autobom
-  #   volumes:
-  #     - ./renderQueue:/renderQueue  # Shared folder for rendering
-  #   
-  #   depends_on:
-  #     - freecad
-  #     - kicad
-
   freecad:
-    build:
-      context: .
-      dockerfile: ${GITHUB_ACTION_PATH}/render/Dockerfile-freecad-gha
+    image: ghcr.io/opulo-inc/autobom-freecad:${AUTOBOM_IMAGE_TAG:-latest}
     container_name: freecad
     volumes:
       - ${GITHUB_ACTION_PATH}/renderQueue:/renderQueue
+    ports:
+      - "9001:9001"
 
   kicad:
-    build:
-        context: .
-        dockerfile: ${GITHUB_ACTION_PATH}/render/Dockerfile-kicad
+    image: ghcr.io/opulo-inc/autobom-kicad:${AUTOBOM_IMAGE_TAG:-latest}
     container_name: kicad
     volumes:
       - ${GITHUB_ACTION_PATH}/renderQueue:/renderQueue
-
+    ports:
+      - "9002:9002"

@@ -62,7 +62,10 @@ class Builder:
 
         # self.abPath is the path to the contents of the autobom repository,
         # used mainly for copying web assets and sending files to the render engine
-        self.abPath = os.environ.get('GITHUB_ACTION_PATH', '/Users/stephen/autobom')
+        self.abPath = os.environ.get('GITHUB_ACTION_PATH')
+        if not self.abPath:
+            # Local fallback: package lives at <repo>/src/autobom/
+            self.abPath = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(autobom.__file__))))
 
         # self.repoPath is used to point towards where the repo itself is
         # this is less necessary as we could just write all paths in autobom
@@ -113,23 +116,33 @@ class Builder:
         Logger.info(f'Using BOM: {self.manifest["bom"]}')
         
         # iterating through parts
+        failures = []
         for part in self.bom["parts"]:
             Logger.info("Now processing: " + part['name'])
+            optional = part.get("optional", False)
 
             if part["type"] == "mcad":
                 
                 mcad = MCAD(part, self.config, sha, self.repoPath, self.abPath)
                 if not self.findMcad(mcad):
-                    Logger.warn("Was not able to find source file for " + part['name'])
+                    msg = "Was not able to find source file for " + part['name']
+                    Logger.warn(msg)
+                    if not optional:
+                        failures.append(msg)
                 else:
-                    mcad.out(self.manifest)
+                    if not mcad.out(self.manifest) and not optional:
+                        failures.append(f"Failed to export or render {part['name']}")
 
             elif part["type"] == "ecad":
                 ecad = ECAD(part, self.config, sha, self.repoPath, self.abPath)
                 if not self.findEcad(ecad):
-                    Logger.warn("Was not able to find source file for " + part['name'])
+                    msg = "Was not able to find source file for " + part['name']
+                    Logger.warn(msg)
+                    if not optional:
+                        failures.append(msg)
                 else:
-                    ecad.out(self.manifest)
+                    if not ecad.out(self.manifest) and not optional:
+                        failures.append(f"Failed to export or render {part['name']}")
 
             elif part["type"] == "wcad":
                 pass
@@ -144,7 +157,14 @@ class Builder:
 
         self.renderSite()
 
+        if failures:
+            for failure in failures:
+                Logger.warn(failure)
+            Logger.warn(f"Autobom finished with {len(failures)} failure(s)")
+            return False
+
         Logger.info("Autobom done!")
+        return True
         
 
     def findMcad(self, mcad):

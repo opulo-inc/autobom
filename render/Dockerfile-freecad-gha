@@ -40,8 +40,8 @@ RUN add-apt-repository ppa:openscad/releases && \
 # FREECAD INSTALL
 # ---------------
 
-# Install x86 FreeCAD
-RUN wget https://github.com/FreeCAD/FreeCAD/releases/download/1.0.0/FreeCAD_1.0.0-conda-Linux-x86_64-py311.AppImage -O /FreeCAD_x86.AppImage && \
+# Install x86 FreeCAD 1.1.1 (must match FCStd files saved from 1.1.x)
+RUN wget https://github.com/FreeCAD/FreeCAD/releases/download/1.1.1/FreeCAD_1.1.1-Linux-x86_64-py311.AppImage -O /FreeCAD_x86.AppImage && \
     chmod +x /FreeCAD_x86.AppImage && \
     ./FreeCAD_x86.AppImage --appimage-extract > /dev/null
 

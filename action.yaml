@@ -1,55 +1,68 @@
 # action.yml
 name: 'AutoBOM'
 description: 'Automatically export and render your hardware project'
-inputs:
-  repo-ref:
-    description: "Reference to the repo to run AutoBOM on"
-    required: true
 branding:
   icon: 'crosshair'
   color: 'yellow'
+inputs:
+  image-tag:
+    description: 'Tag for prebuilt render engine images on GHCR'
+    required: false
+    default: 'latest'
 runs:
   using: 'composite'
   steps:
-
-    # - name: Replace Github ENV Variables in Compose
-    #   run: |
-    #     envsubst < $GITHUB_ACTION_PATH/docker-compose.yaml.template > $GITHUB_ACTION_PATH/docker-compose.yml
-    #     ls
-    #   shell: bash
-
-    - name: Replace Github ENV Variables in Compose
-      run: |
-        set -x
-        sed -i "s|\${GITHUB_ACTION_PATH}|$GITHUB_ACTION_PATH|g" ${{ github.action_path }}/docker-compose.yaml
-      shell: bash
-
     - name: Start Render Engines
-      run: |
-        set -x
-        docker compose -f ${{ github.action_path }}/docker-compose.yaml up -d
       shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+        AUTOBOM_IMAGE_TAG: ${{ inputs.image-tag }}
+      run: |
+        set -euo pipefail
+        compose="${{ github.action_path }}/docker-compose.yaml"
+        docker compose -f "$compose" pull
+        docker compose -f "$compose" up -d
+
+    - name: Wait for Render Engines
+      shell: bash
+      run: |
+        set -euo pipefail
+        wait_for_port() {
+          local port="$1"
+          local name="$2"
+          for i in $(seq 1 90); do
+            if (echo >/dev/tcp/127.0.0.1/"$port") >/dev/null 2>&1; then
+              echo "$name is ready on port $port"
+              return 0
+            fi
+            sleep 2
+          done
+          echo "Timed out waiting for $name on port $port"
+          docker compose -f "${{ github.action_path }}/docker-compose.yaml" logs
+          return 1
+        }
+        wait_for_port 9001 freecad
+        wait_for_port 9002 kicad
 
     - name: Set up Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
-        python-version: '3.9'  # You can change this version based on your needs
+        python-version: '3.11'
 
-    # Step 2: Install `uv` using pip
     - name: Install UV package manager
+      shell: bash
       run: |
         python -m pip install --upgrade pip
         pip install uv
-      shell: bash
 
     - name: Run AutoBOM
-      run: |
-          set -x
-          uv run --project $GITHUB_ACTION_PATH autobom
       shell: bash
       env:
-        GITHUB_ACTION_PATH: $GITHUB_ACTION_PATH  # The action's path
-        GITHUB_WORKSPACE: $GITHUB_WORKSPACE    # The user's repo workspace
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+        GITHUB_WORKSPACE: ${{ github.workspace }}
+      run: |
+        set -euo pipefail
+        uv run --project "${{ github.action_path }}" autobom
 
     - name: Upload artifact
       uses: actions/upload-artifact@v4
@@ -57,3 +70,11 @@ runs:
         name: Autobom
         path: ./autobom
 
+    - name: Stop Render Engines
+      if: always()
+      shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+        AUTOBOM_IMAGE_TAG: ${{ inputs.image-tag }}
+      run: |
+        docker compose -f "${{ github.action_path }}/docker-compose.yaml" down || true

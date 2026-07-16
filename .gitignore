@@ -168,3 +168,13 @@ cython_debug/
 #
 # Text autobom export folder for examples
 /autobom/
+
+# Queue IO (keep directory placeholders tracked)
+renderQueue/**/in/**
+renderQueue/**/out/**
+!renderQueue/**/in/.gitkeep
+!renderQueue/**/out/.gitkeep
+renderQueue/sockets/**
+!renderQueue/sockets/.gitkeep
+*.FCStd
+autobom.code-workspace
