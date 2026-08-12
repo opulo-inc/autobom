@@ -13,13 +13,20 @@
 #FROM ghcr.io/inti-cmnb/kicad8_auto
 FROM ghcr.io/inti-cmnb/kicad8_auto:1.8.1
 
+# Noninteractive apt: base image has a modified ImageMagick policy.xml;
+# without this, upgrading imagemagick hangs on a conffile prompt in CI.
+ENV DEBIAN_FRONTEND=noninteractive
+
 # ---------------
 # DEPENDENCY INSTALL
 # ---------------
 
-RUN apt update && \
-    apt-get -y install wget git git-lfs zip librsvg2-bin imagemagick && \
-    apt update
+RUN apt-get update && \
+    apt-get -y \
+      -o Dpkg::Options::="--force-confdef" \
+      -o Dpkg::Options::="--force-confold" \
+      install wget git git-lfs zip librsvg2-bin imagemagick && \
+    rm -rf /var/lib/apt/lists/*
 
 # ---------------
 # KICAD INSTALL

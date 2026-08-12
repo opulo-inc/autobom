@@ -12,14 +12,20 @@
 
 FROM ubuntu:20.04
 
+ENV DEBIAN_FRONTEND=noninteractive
+ENV TZ=UTC
+
 # ---------------
 # DEPENDENCY INSTALL
 # ---------------
 
 # install add-apt-repository and wget to install other stuff
-RUN apt update && \
-    apt-get -y install software-properties-common wget curl && \
-    apt update
+RUN apt-get update && \
+    apt-get -y \
+      -o Dpkg::Options::="--force-confdef" \
+      -o Dpkg::Options::="--force-confold" \
+      install software-properties-common wget curl && \
+    rm -rf /var/lib/apt/lists/*
 
 # install python, lots of dependencies
 RUN apt-get update && \
