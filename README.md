@@ -25,8 +25,9 @@ There are only a handful of CAD packages that we can support, given that all thi
 
 1. In your hardware repo root, add `autobom.json` and a BOM file (see [Config](#config) below).
 2. Copy [`examples/autobom.workflow.yaml`](examples/autobom.workflow.yaml) to `.github/workflows/autobom.yaml` (or paste the snippet below).
-3. Ensure render images are published for the tag you pin (see [Publish images](#publish-images)). On first use after a release, run the **Publish render engine images** workflow in this repo if needed.
-4. Push a release or run the workflow via **workflow_dispatch**. AutoBOM uploads an `Autobom` artifact containing exports, renders, `index.html`, and `manifest.json`.
+3. Push a release or run the workflow via **workflow_dispatch**. AutoBOM uploads an `Autobom` artifact containing exports, renders, `index.html`, and `manifest.json`.
+
+Each Action run builds the FreeCAD and KiCAD Docker images from the Dockerfiles in this repo (slow the first time / when Dockerfiles change; simple and self-contained).
 
 ```yaml
 name: AutoBOM
@@ -42,15 +43,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: opulo-inc/autobom@v0.2.0
-        with:
-          image-tag: latest
 ```
 
 Pin a release tag (`@v0.2.0`) rather than `@main` for reproducible builds.
 
 ### Config
 
-**`autobom.json`** (repo root):
+Place **`autobom.json`** in the root of your hardware repository. AutoBOM reads this file first, then loads the BOM at `bom_path`.
+
+#### `autobom.json` reference
 
 ```json
 {
@@ -75,7 +76,59 @@ Pin a release tag (`@v0.2.0`) rather than `@main` for reproducible builds.
 }
 ```
 
-**`bom.json`** (path from `bom_path`):
+| Key | Required | Description |
+|-----|----------|-------------|
+| `source_url` | **yes** | Base URL of the hardware repo (no trailing slash). Used in the generated BOM page header and to build GitHub `blob/<sha>/…` links when `render` is `"src"`. |
+| `bom_path` | **yes** | Path to the BOM JSON file, relative to the hardware repo root (e.g. `"bom.json"` or `"docs/bom.json"`). |
+| `mcad` | **yes** | Defaults for mechanical CAD parts (`type: "mcad"` in the BOM). See below. |
+| `ecad` | **yes** | Defaults for electronics CAD parts (`type: "ecad"` in the BOM). See below. |
+| `site` | **yes** | Options for the generated BOM webpage. See below. |
+
+##### `mcad`
+
+Controls mechanical parts (FreeCAD `.FCStd`, OpenSCAD `.scad`).
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `export` | **yes** | — | Which manufacturing export to record in `manifest.json` for each mcad part. Allowed: `"step"`, `"stl"`. (The FreeCAD render engine still runs the full export/render pass; this field selects which file path is written into the part’s `export` entry in the manifest.) |
+| `render` | **yes** | — | How the BOM page should prefer to display this part. See [Render modes](#render-modes) below. |
+| `path` | no | *(whole repo)* | Subdirectory (relative to repo root) to search for source files. If omitted, AutoBOM walks the entire repository. Example: `"pnp/cad"`. |
+
+##### `ecad`
+
+Controls electronics parts (KiCAD projects with a `.kicad_pro` file).
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `export` | **yes** | — | Intended manufacturing export mode. Conventional value: `"gerber"`. Today KiBot always runs the outputs defined in AutoBOM’s `render/config.kibot.yaml` (gerbers, plots, BOM CSV, etc.) regardless of this string; keep `"gerber"` for forward compatibility. |
+| `render` | **yes** | — | How the BOM page should prefer to display this part. See [Render modes](#render-modes) below. |
+| `path` | no | *(whole repo)* | Subdirectory (relative to repo root) to search for KiCAD projects. If omitted, AutoBOM walks the entire repository. Example: `"pnp/pcb"`. |
+
+##### `site`
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `colors` | no | see below | Theme colors for the generated BOM page. Hex values **without** a leading `#`. |
+| `colors.primary` | no | `"daa520"` | Primary accent color. |
+| `colors.secondary` | no | `"af8000"` | Secondary accent color. |
+
+`site` itself must be present (even as `{}`). Color keys are accepted and merged with defaults; full CSS theming from these values is still evolving.
+
+##### Render modes
+
+Used by both `mcad.render` and `ecad.render` (and by per-part overrides in the BOM):
+
+| Value | Behavior |
+|-------|----------|
+| `"src"` | Prefer an interactive source viewer. For mcad, builds a GitHub link to the FreeCAD/OpenSCAD file at the build commit (`source_url` + `/blob/<sha>/…`) for Online3DViewer. For ecad, points at the project path similarly; preview PNGs from the export pass are also recorded. |
+| `"img"` | Prefer a static preview image from the export output (`export/<name>.png` for mcad, `export/<name>/<name>-top.png` for ecad). |
+| *(any other string)* | Treated as a custom image URL/path and used as the part’s `img_path` (useful for hosting a pre-rendered preview elsewhere). |
+
+Any part in `bom.json` may set its own `"render"` or `"export"` field to override the matching `mcad` / `ecad` default for that part only.
+
+---
+
+#### `bom.json` (path from `bom_path`)
 
 ```json
 {
@@ -96,45 +149,57 @@ Pin a release tag (`@v0.2.0`) rather than `@main` for reproducible builds.
       "type": "ecad",
       "optional": false,
       "source": "https://example.com",
-      "notes": ""
+      "notes": "",
+      "render": "img",
+      "export": "gerber"
     }
   ]
 }
 ```
 
-- `type`: `mcad` (FreeCAD `.FCStd` / OpenSCAD `.scad`) or `ecad` (KiCAD `.kicad_pro`)
-- `name` must match the source filename / KiCAD project name
-- `optional: true` skips failing that part without failing the whole job
-- CAD sources are searched under `mcad.path` / `ecad.path` if set, otherwise the whole repo
+| Key | Required | Description |
+|-----|----------|-------------|
+| `name` | **yes** | Product name shown on the BOM page and in `manifest.json`. |
+| `version` | **yes** | Product/version string shown on the BOM page (e.g. `"v1.0.0"` or `"main"`). |
+| `parts` | **yes** | Array of part objects (see below). |
+
+##### Part object
+
+| Key | Required | Description |
+|-----|----------|-------------|
+| `name` | **yes** | Must match the FreeCAD/OpenSCAD filename stem (e.g. `my-bracket` → `my-bracket.FCStd`) or the KiCAD project name (directory containing `my-bracket.kicad_pro`). |
+| `quantity` | **yes** | Count shown in the BOM table. |
+| `type` | **yes** | `"mcad"` (FreeCAD / OpenSCAD), `"ecad"` (KiCAD). `"wcad"` and `"misc"` are recognized but not processed yet. |
+| `optional` | no | Default `false`. If `true`, a missing source or failed export/render does **not** fail the overall job. |
+| `source` | no | Link shown in the BOM table (vendor page, datasheet, repo path, etc.). |
+| `notes` | no | Free-text note shown in the BOM table. |
+| `render` | no | Overrides `mcad.render` / `ecad.render` for this part only. Same values as [Render modes](#render-modes). |
+| `export` | no | Overrides `mcad.export` / `ecad.export` for this part only. |
+
+CAD sources are searched under `mcad.path` / `ecad.path` when set; otherwise the whole repo.
 
 See also [opulo-inc/example-autobom-project](https://github.com/opulo-inc/example-autobom-project).
 
 ### Running local
 
-This assumes this is being run on Apple ARM silicon.
+Requires Docker Desktop (or equivalent) running. From your hardware repo root:
 
-1. Get render engines running. From autobom repo root, run:
-  
-    `docker compose -f docker-compose-local.yaml up -d --build`
+```bash
+uv run --project /path/to/autobom/repo autobom
+```
 
-2. Run Autobom. `cd` to the project repo root, and run:
+Locally, `autobom` starts the FreeCAD/KiCAD containers if they aren’t already up, waits for ports 9001/9002, runs the build, then stops containers it started. On Apple Silicon it uses `docker-compose-local.yaml`; elsewhere `docker-compose.yaml`.
 
-    `uv run --project /path/to/autobom/repo autobom`
+- If engines are already running, they are reused and left up afterward.
+- To keep engines you started (faster re-runs): `AUTOBOM_KEEP_ENGINES=1 uv run --project /path/to/autobom/repo autobom`
 
-3. You'll get a shiny new `autobom` folder in the root of the project repo with all the exported files.
+Under GitHub Actions, `action.yaml` owns container start/stop; the CLI does not manage Docker there.
+
+You'll get an `autobom/` folder in the hardware repo root with exports and `index.html`.
 
 To export STEP from every FreeCAD file in a tree:
 
     `uv run --project /path/to/autobom/repo export-freecad`
-
-### Publish images
-
-GitHub Actions uses prebuilt images:
-
-- `ghcr.io/opulo-inc/autobom-freecad`
-- `ghcr.io/opulo-inc/autobom-kicad`
-
-They are built by [`.github/workflows/publish-images.yml`](.github/workflows/publish-images.yml) on pushes to `main`, version tags, or manual `workflow_dispatch`. Packages must be public (or the consumer workflow must authenticate to GHCR) for `docker pull` to work in other repos.
 
 ## References and Dependencies
 
@@ -154,7 +219,7 @@ Here's a rough breakdown of what's in this repo
   - `Dockerfile-freecad-local` is for Apple Silicon local testing.
   - `Dockerfile-kicad` runs KiBot against a whole KiCAD project directory.
   - `./docker-compose-local.yaml` builds images locally for Mac ARM.
-  - `./docker-compose.yaml` pulls GHCR images for the Github Action.
+  - `./docker-compose.yaml` builds images for the Github Action (x86 FreeCAD + KiCAD).
 - `./renderQueue` is a folder that the render engine docker containers use to exchange source/export files with the host.
 - `./src` is where all the Autobom python source exists. This is what generates the website, parses the bom and config files, finds the source files, and makes decisions about what files get rendered where.
 - `./action.yaml` is the composite Github Action entrypoint.

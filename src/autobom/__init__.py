@@ -11,14 +11,17 @@ import logging
 import sys
 
 from .base.builder import Builder
+from .base.render_engines import managed_render_engines
 
 def main():
 
     logging.basicConfig(level=logging.DEBUG)
 
-    builder = Builder()
+    ok = False
+    with managed_render_engines():
+        builder = Builder()
+        ok = builder.run()
 
-    ok = builder.run()
     if not ok:
         sys.exit(1)
 

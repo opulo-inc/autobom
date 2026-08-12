@@ -4,11 +4,6 @@ description: 'Automatically export and render your hardware project'
 branding:
   icon: 'crosshair'
   color: 'yellow'
-inputs:
-  image-tag:
-    description: 'Tag for prebuilt render engine images on GHCR'
-    required: false
-    default: 'latest'
 runs:
   using: 'composite'
   steps:
@@ -16,12 +11,10 @@ runs:
       shell: bash
       env:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
-        AUTOBOM_IMAGE_TAG: ${{ inputs.image-tag }}
       run: |
         set -euo pipefail
         compose="${{ github.action_path }}/docker-compose.yaml"
-        docker compose -f "$compose" pull
-        docker compose -f "$compose" up -d
+        docker compose -f "$compose" up -d --build
 
     - name: Wait for Render Engines
       shell: bash
@@ -30,7 +23,7 @@ runs:
         wait_for_port() {
           local port="$1"
           local name="$2"
-          for i in $(seq 1 90); do
+          for i in $(seq 1 180); do
             if (echo >/dev/tcp/127.0.0.1/"$port") >/dev/null 2>&1; then
               echo "$name is ready on port $port"
               return 0
@@ -75,6 +68,5 @@ runs:
       shell: bash
       env:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
-        AUTOBOM_IMAGE_TAG: ${{ inputs.image-tag }}
       run: |
         docker compose -f "${{ github.action_path }}/docker-compose.yaml" down || true

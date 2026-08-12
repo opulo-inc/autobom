@@ -22,10 +22,8 @@ jobs:
 
       - name: Run AutoBOM
         uses: opulo-inc/autobom@v0.2.0
-        # Or pin a commit SHA / use @main while iterating:
+        # Or while iterating:
         # uses: opulo-inc/autobom@main
-        with:
-          image-tag: latest
 
       # Artifact "Autobom" is uploaded by the action (autobom/ folder:
       # exports, renders, index.html, manifest.json).

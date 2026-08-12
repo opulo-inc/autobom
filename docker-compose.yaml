@@ -1,6 +1,8 @@
 services:
   freecad:
-    image: ghcr.io/opulo-inc/autobom-freecad:${AUTOBOM_IMAGE_TAG:-latest}
+    build:
+      context: ${GITHUB_ACTION_PATH}
+      dockerfile: render/Dockerfile-freecad-gha
     container_name: freecad
     volumes:
       - ${GITHUB_ACTION_PATH}/renderQueue:/renderQueue
@@ -8,7 +10,9 @@ services:
       - "9001:9001"
 
   kicad:
-    image: ghcr.io/opulo-inc/autobom-kicad:${AUTOBOM_IMAGE_TAG:-latest}
+    build:
+      context: ${GITHUB_ACTION_PATH}
+      dockerfile: render/Dockerfile-kicad
     container_name: kicad
     volumes:
       - ${GITHUB_ACTION_PATH}/renderQueue:/renderQueue
