@@ -13,6 +13,17 @@ from ..base.socket_protocol import (
 
 export_options = ["step", "stl", "all"]
 
+
+def raw_source_url(source_url, sha, repo_path, file_path):
+    """Public URL for a file at this commit (jsDelivr, CORS-friendly from file://)."""
+    rel = os.path.relpath(file_path, repo_path).replace(os.sep, "/")
+    base = (source_url or "").rstrip("/")
+    if "github.com/" in base:
+        repo = base.split("github.com/", 1)[1]
+        return f"https://cdn.jsdelivr.net/gh/{repo}@{sha}/{rel}"
+    return f"{base}/{rel}"
+
+
 class MCAD():
 
     def __init__(self, part_info, settings, sha, repoPath, abPath):
@@ -158,16 +169,10 @@ class MCAD():
         render = {"method_preference": "", "img_path": "", "3d_path": ""}
 
         if render_method == "src":
-            # this is easy, it's just pulling the github link! no sweat!
-            repo = self.settings['source_url']
-
-            ghlink = repo + "/blob/" + self.sha + "/" + self.path
-
-            # correctly formatted gh link for reference
-            # https://github.com/opulo-inc/lumenpnp/blob/be58b3eeba5aecb69e166f0e397c5b0ebc95fa33/pnp/cad/FDM/y-gantry.FCStd
-            
             render["method_preference"] = "3d"
-            render["3d_path"] = ghlink
+            render["3d_path"] = raw_source_url(
+                self.settings.get("source_url", ""), self.sha, self.repoPath, self.path
+            )
             render["img_path"] = "export/" + self.part_info["name"] + ".png"
 
         elif render_method == "img":

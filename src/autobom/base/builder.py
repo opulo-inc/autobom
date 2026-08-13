@@ -238,11 +238,13 @@ class Builder:
 
         for part in self.manifest["parts"]:
 
+            render = part.get("render") or {}
             row = f"""
             <tr id="{part["name"]}"
-            renderpreference="{part["render"]["method_preference"]}"
-            3dpath="{part["render"]["3d_path"]}"
-            imgpath="{part["render"]["img_path"]}"
+            renderpreference="{render.get("method_preference", "")}"
+            3dpath="{render.get("3d_path", "")}"
+            kipath="{render.get("kicad_path", "")}"
+            imgpath="{render.get("img_path", "")}"
             onclick="updateRender(this)"><th>{part["name"]} 
             </th><th>{part["quantity"]}
             </th><th><a href="{part["source"]}">Link</a>

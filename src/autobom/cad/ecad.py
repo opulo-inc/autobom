@@ -5,6 +5,7 @@
 import os, time, copy, shutil, stat, socket, uuid
 
 from ..base.logger import Logger
+from .mcad import raw_source_url
 from ..base.socket_protocol import (
     get_ecad_socket_address,
     send_message, receive_message,
@@ -136,28 +137,24 @@ class ECAD():
                 # Clean up output directory
                 try:
                     shutil.rmtree(exportDir, onerror=self.del_rw)
-                except:
+                except Exception:
                     pass
         except Exception as e:
             Logger.warn(f"Error copying export files for {self.name}: {str(e)}")
             return False
 
+        pcb_src = os.path.join(self.path, self.name + ".kicad_pcb")
+        kicad_url = raw_source_url(
+            self.settings.get("source_url", ""), self.sha, self.repoPath, pcb_src
+        )
+
         # update manifest
         part_manifest = copy.deepcopy(self.part_info)
 
-        render = {"method_preference": "", "img_path": "", "3d_path": ""}
+        render = {"method_preference": "", "img_path": "", "3d_path": "", "kicad_path": kicad_url}
 
         if render_method == "src":
-            # this is easy, it's just pulling the github link! no sweat!
-            repo = self.settings['source_url']
-
-            ghlink = repo + "/blob/" + self.sha + "/" + self.path
-
-            # correctly formatted gh link for reference
-            # https://github.com/opulo-inc/lumenpnp/blob/be58b3eeba5aecb69e166f0e397c5b0ebc95fa33/pnp/cad/FDM/y-gantry.FCStd
-            
-            render["method_preference"] = "3d"
-            render["3d_path"] = ghlink
+            render["method_preference"] = "kicanvas"
             render["img_path"] = "export/" + self.part_info["name"] + "/" + self.part_info["name"] + "-top.png"
 
         elif render_method == "img":

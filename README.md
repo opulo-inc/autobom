@@ -121,8 +121,8 @@ Used by both `mcad.render` and `ecad.render` (and by per-part overrides in the B
 
 | Value | Behavior |
 |-------|----------|
-| `"src"` | Prefer an interactive source viewer. For mcad, builds a GitHub link to the FreeCAD/OpenSCAD file at the build commit (`source_url` + `/blob/<sha>/…`) for Online3DViewer. For ecad, points at the project path similarly; preview PNGs from the export pass are also recorded. |
-| `"img"` | Prefer a static preview image from the export output (`export/<name>.png` for mcad, `export/<name>/<name>-top.png` for ecad). |
+| `"src"` | Embed an interactive viewer from a public GitHub URL (jsDelivr → the source `.FCStd` / `.kicad_pcb` at the build commit). Works when you double-click `index.html`. If you are offline, falls back to the local PNG. |
+| `"img"` | Show the local preview PNG from the artifact (`export/<name>.png` for mcad, `export/<name>/<name>-top.png` for ecad). |
 | *(any other string)* | Treated as a custom image URL/path and used as the part’s `img_path` (useful for hosting a pre-rendered preview elsewhere). |
 
 Any part in `bom.json` may set its own `"render"` or `"export"` field to override the matching `mcad` / `ecad` default for that part only.

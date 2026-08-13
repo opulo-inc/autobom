@@ -2,6 +2,14 @@
 
 var activeRow = null;
 
+function showImage(render, imgpath) {
+    if (imgpath) {
+        render.innerHTML = "<img src='" + imgpath + "' alt='preview' />";
+    } else {
+        render.innerHTML = "<p style='margin-top:45%;'>No preview</p>";
+    }
+}
+
 function updateRender(clickedElement){
 
     let render = document.getElementById("replace-with-render");
@@ -9,6 +17,7 @@ function updateRender(clickedElement){
     if(clickedElement.hasAttribute("renderpreference")){
         let type = clickedElement.getAttribute("renderpreference");
         let threedpath = clickedElement.getAttribute("3dpath");
+        let kipath = clickedElement.getAttribute("kipath");
         let imgpath = clickedElement.getAttribute("imgpath");
 
         if (activeRow !== null){
@@ -19,24 +28,25 @@ function updateRender(clickedElement){
 
         clickedElement.classList.add("active");
 
-        if(location.protocol === 'file:'){
-            render.innerHTML = "<img src='" + imgpath + "' />"
+        let offline = (typeof navigator !== "undefined" && navigator.onLine === false);
 
+        if (type == "img" || offline) {
+            showImage(render, imgpath);
         }
-        else if(type == "3d"){
-            
-            render.innerHTML = "<div class='online_3d_viewer' style='width: 100%; height: 100%;' backgroundcolor='255,255,255' model='" + threedpath + "'></div>";
-            OV.SetExternalLibLocation('libs');
-            // init all viewers on the page
-            resp = OV.Init3DViewerElements();
-
+        else if (type == "3d" && threedpath) {
+            try {
+                render.innerHTML = "<div class='online_3d_viewer' style='width: 100%; height: 100%;' backgroundcolor='255,255,255' model='" + threedpath + "'></div>";
+                OV.SetExternalLibLocation('web/o3dv/libs');
+                OV.Init3DViewerElements();
+            } catch (e) {
+                showImage(render, imgpath);
+            }
         }
-        else if (type == "kicanvas"){
-            // add kicanvas embed to render object
-            render.innerHTML = "<kicanvas-embed style='height:100%;' src=\"" + kipath + "\" controls=\"basic\"> </kicanvas-embed>"
+        else if (type == "kicanvas" && kipath) {
+            render.innerHTML = "<kicanvas-embed style='height:100%;' src=\"" + kipath + "\" controls=\"basic\"></kicanvas-embed>";
         }
-        else if (type == "img"){
-            render.innerHTML = "<img src='" + imgpath + "' />"
+        else {
+            showImage(render, imgpath);
         }
 
     }
@@ -49,5 +59,3 @@ function updateRender(clickedElement){
 onresize = (event) => {
 
 };
-
-// i need autobom to give me an object that for every part name with a render, the render type, and the render file path
