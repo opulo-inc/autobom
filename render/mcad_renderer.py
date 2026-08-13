@@ -63,30 +63,43 @@ def _shape_has_volume(shape):
         return False
 
 
-def _find_export_shape(doc, name):
-    """Find a solid shape to export from a FreeCAD document."""
+def _find_export_object(doc, name):
+    """Find a document object with a solid shape to export."""
     # Prefer PartDesign Body (by type or common label)
     bodies = [
         obj for obj in doc.Objects
         if obj.isDerivedFrom("PartDesign::Body") or obj.Label == "Body"
     ]
     for body in bodies:
-        if _shape_has_volume(body.Shape):
-            return body.Shape.copy(False)
+        if hasattr(body, "Shape") and _shape_has_volume(body.Shape):
+            return body
 
     # Part containers (assemblies / multi-body parts)
     parts = [obj for obj in doc.Objects if obj.isDerivedFrom("Part::Feature") and hasattr(obj, "Shape")]
     for part in parts:
         if _shape_has_volume(part.Shape):
-            return part.Shape.copy(False)
+            return part
 
     # App::Part with child solids
     for obj in doc.Objects:
         if obj.isDerivedFrom("App::Part") and hasattr(obj, "Shape"):
             if _shape_has_volume(obj.Shape):
-                return obj.Shape.copy(False)
+                return obj
 
     raise Exception(f"No exportable solid found in model {name}")
+
+
+def _export_step(obj, step_path):
+    """Write STEP. Prefer Import.export (document object); fall back to Shape.exportStep."""
+    os.makedirs(os.path.dirname(step_path), exist_ok=True)
+    try:
+        import Import
+        Import.export([obj], step_path)
+    except Exception as import_err:
+        print(f"Import.export failed ({import_err}); trying Shape.exportStep")
+        obj.Shape.exportStep(step_path)
+    if not os.path.isfile(step_path) or os.path.getsize(step_path) == 0:
+        raise Exception(f"Writing of STEP failed ({step_path})")
 
 
 def renderFreecad(path, part_name):
@@ -95,6 +108,8 @@ def renderFreecad(path, part_name):
         return "FreeCAD is not available (import failed at server startup)"
     doc = None
     try:
+        os.makedirs(freecadOut, exist_ok=True)
+
         # we just barf out an stl, step, and image
         doc = FreeCAD.open(path)
         name = Path(path).stem
@@ -109,10 +124,11 @@ def renderFreecad(path, part_name):
             # 1.1.x files may warn on recompute; try to export anyway
             print(f"Recompute warning for {name}: {recompute_err}")
 
-        shape = _find_export_shape(doc, name)
+        obj = _find_export_object(doc, name)
+        shape = obj.Shape
 
         # generate STEP
-        shape.exportStep(freecadOut + name + ".step")
+        _export_step(obj, os.path.join(freecadOut, name + ".step"))
 
         # Generate STL (coarse deflection keeps memory down on GHA runners)
         mesh = doc.addObject("Mesh::Feature", "Mesh")
@@ -122,7 +138,7 @@ def renderFreecad(path, part_name):
             AngularDeflection=0.5,
             Relative=False,
         )
-        mesh.Mesh.write(freecadOut + name + ".stl")
+        mesh.Mesh.write(os.path.join(freecadOut, name + ".stl"))
 
         # Preview PNG is best-effort; STEP/STL success still counts
         try:
