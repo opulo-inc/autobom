@@ -83,7 +83,7 @@ Place **`autobom.json`** in the root of your hardware repository. AutoBOM reads 
 | `mcad` | **yes** | Defaults for mechanical CAD parts (`type: "mcad"` in the BOM). See below. |
 | `ecad` | **yes** | Defaults for electronics CAD parts (`type: "ecad"` in the BOM). See below. |
 | `site` | **yes** | Options for the generated BOM webpage. See below. |
-| `strict` | no | Default `false`. If `true`, the job exits non-zero when any non-`optional` part is missing or fails to export. If `false` (default), those are logged as warnings and the `autobom/` output is still produced. |
+| `strict` | no | Default `false`. If `true`, the job exits non-zero when **any** part is missing or fails to export. If `false`, those are logged as warnings and the `autobom/` output is still produced. `optional` on a part does not change this. |
 
 ##### `mcad`
 
@@ -121,7 +121,7 @@ Used by both `mcad.render` and `ecad.render` (and by per-part overrides in the B
 
 | Value | Behavior |
 |-------|----------|
-| `"src"` | Embed an interactive viewer from a public GitHub URL (jsDelivr → the source `.FCStd` / `.kicad_pcb` at the build commit). Works when you double-click `index.html`. If you are offline, falls back to the local PNG. |
+| `"src"` | Embed an interactive viewer from GitHub raw (`raw.githubusercontent.com` → the source `.FCStd` / `.kicad_pcb` at the build commit). Shows the local PNG with a “Loading source…” toast until the viewer is ready. Offline, stays on the PNG. |
 | `"img"` | Show the local preview PNG from the artifact (`export/<name>.png` for mcad, `export/<name>/<name>-top.png` for ecad). |
 | *(any other string)* | Treated as a custom image URL/path and used as the part’s `img_path` (useful for hosting a pre-rendered preview elsewhere). |
 
@@ -134,7 +134,6 @@ Any part in `bom.json` may set its own `"render"` or `"export"` field to overrid
 ```json
 {
   "name": "MyProduct",
-  "version": "v1.0.0",
   "parts": [
     {
       "name": "my-bracket",
@@ -161,8 +160,12 @@ Any part in `bom.json` may set its own `"render"` or `"export"` field to overrid
 | Key | Required | Description |
 |-----|----------|-------------|
 | `name` | **yes** | Product name shown on the BOM page and in `manifest.json`. |
-| `version` | **yes** | Product/version string shown on the BOM page (e.g. `"v1.0.0"` or `"main"`). |
 | `parts` | **yes** | Array of part objects (see below). |
+
+The page title / `manifest.version` is **not** set in `bom.json`. It comes from git:
+
+- Local run or `workflow_dispatch`: short commit hash
+- `release` event: the release tag (e.g. `v4.2.0`)
 
 ##### Part object
 
@@ -171,8 +174,8 @@ Any part in `bom.json` may set its own `"render"` or `"export"` field to overrid
 | `name` | **yes** | Must match the FreeCAD/OpenSCAD filename stem (e.g. `my-bracket` → `my-bracket.FCStd`) or the KiCAD project name (directory containing `my-bracket.kicad_pro`). |
 | `quantity` | **yes** | Count shown in the BOM table. |
 | `type` | **yes** | `"mcad"` (FreeCAD / OpenSCAD), `"ecad"` (KiCAD). `"wcad"` and `"misc"` are recognized but not processed yet. |
-| `optional` | no | Default `false`. If `true`, a missing source or failed export/render does **not** fail the overall job. |
-| `source` | no | Link shown in the BOM table (vendor page, datasheet, repo path, etc.). |
+| `optional` | no | Informational only (shown on the BOM page). Does **not** change whether AutoBOM treats the part as required. |
+| `source` | no | Link(s) shown in the BOM table. A string, or an array of strings (`["https://a", "https://b"]`) which renders as Link 1, Link 2, … |
 | `notes` | no | Free-text note shown in the BOM table. |
 | `render` | no | Overrides `mcad.render` / `ecad.render` for this part only. Same values as [Render modes](#render-modes). |
 | `export` | no | Overrides `mcad.export` / `ecad.export` for this part only. |

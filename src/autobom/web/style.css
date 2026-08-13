@@ -89,20 +89,75 @@ tr:hover {
     overflow: hidden;
 }
 
+#render-toolbar {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 0;
+    border-bottom: 1px solid #fff;
+}
+
+#render-toolbar[hidden] {
+    display: none;
+}
+
+.view-toggle {
+    flex: 1;
+    border: none;
+    background: #333;
+    color: #fff;
+    padding: 0.55em 0.8em;
+    cursor: pointer;
+    font: inherit;
+}
+
+.view-toggle:hover {
+    background: #444;
+}
+
+.view-toggle.active {
+    background: #af8000;
+    color: #fff;
+}
+
 #replace-with-render {
     background-color: #a1a1a1;
     flex: 1 1 auto;
     min-height: 0;
     overflow: hidden;
     text-align: center;
+    position: relative;
+}
+
+.src-loading-toast {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    background: #222;
+    color: #fff;
+    padding: 0.6em 1em;
+    font-size: 0.9em;
+}
+
+.src-placeholder {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    z-index: 1;
+}
+
+.src-viewer {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    z-index: 0;
 }
 
 .online_3d_viewer {
     height: 100%;
 }
 
-#notes-render {
-    background-color: orange;
-    flex: 0 0 auto;
-    width:100%;
-}

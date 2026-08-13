@@ -15,6 +15,21 @@ default = {
     }
 }
 
+def _source_links(source):
+    if isinstance(source, (list, tuple)):
+        urls = [u for u in source if u]
+    elif source:
+        urls = [source]
+    else:
+        return ""
+    if len(urls) == 1:
+        return f'<a href="{urls[0]}" target="_blank" rel="noopener noreferrer">Link</a>'
+    return " ".join(
+        f'<a href="{url}" target="_blank" rel="noopener noreferrer">Link {i}</a>'
+        for i, url in enumerate(urls, 1)
+    )
+
+
 class Site():
     def __init__(self, config):
         # updating default settings based on any config in autobom.json
@@ -34,8 +49,8 @@ class Site():
         githubLink = manifest["source_url"]
         gitCommit = manifest['shortsha']
 
-        title = "<h1>" + str(manifest["name"]) + " BOM - " + str(manifest["version"]) + "</h1>"
-        source = "<a href='" + githubLink + "' target='_blank' rel='noopener noreferrer'><h4>" + gitCommit + "</h4></a>"
+        title = "<h1>" + str(manifest["name"]) + " BOM - " + str(manifest.get("version", manifest.get("shortsha", ""))) + "</h1>"
+        source = "<a href='" + githubLink + "/tree/" + gitCommit + "' target='_blank' rel='noopener noreferrer'><h4>" + gitCommit + "</h4></a>"
 
         f.write(title)
         f.write(source)
@@ -51,7 +66,7 @@ class Site():
             renderpath="{part["render"]["path"]}"
             onclick="updateRender(this)"><th>{part["name"]} 
             </th><th>{part["quantity"]}
-            </th><th><a href="{part["source"]}">Link</a>
+            </th><th>{_source_links(part.get("source"))}
             </th><th>{part["notes"]}
             </th></tr>
             """

@@ -11,11 +11,11 @@ The Builder class is the main thing responsible for parsing the bom.json file an
 - getting the website built
 """
 
-import enum, time, json, os, shutil, subprocess, autobom, fnmatch
+import copy, enum, time, json, os, shutil, subprocess, autobom, fnmatch
 
 from .logger import Logger
 from .site import Site
-from ..cad.mcad import MCAD
+from ..cad.mcad import MCAD, raw_source_url
 from ..cad.ecad import ECAD
 
 default = {
@@ -102,24 +102,27 @@ class Builder:
 
         sha = subprocess.check_output(['git', 'rev-parse', 'HEAD']).decode('ascii').strip()
         shortsha = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD']).decode('ascii').strip()
+        version = self._resolve_version(shortsha)
 
         # start adding to manifest object 
         self.manifest['build_init'] = time.time()
         self.manifest['bom'] = self.config["bom_path"]
         self.manifest['source_url'] = self.config["source_url"]
         self.manifest['name'] = self.bom['name']
-        self.manifest['version'] = self.bom['version']
+        self.manifest['version'] = version
         self.manifest['shortsha'] = shortsha
+        self.manifest['sha'] = sha
         self.manifest['parts'] = []
 
-        Logger.info(f'Building {self.manifest["name"]} - {self.manifest["version"]} - {shortsha}')
+        Logger.info(f'Building {self.manifest["name"]} - {version}')
         Logger.info(f'Using BOM: {self.manifest["bom"]}')
         
         # iterating through parts
         failures = []
+        missing_sources = []
         for part in self.bom["parts"]:
             Logger.info("Now processing: " + part['name'])
-            optional = part.get("optional", False)
+            source_path = None
 
             if part["type"] == "mcad":
                 
@@ -127,10 +130,11 @@ class Builder:
                 if not self.findMcad(mcad):
                     msg = "Was not able to find source file for " + part['name']
                     Logger.warn(msg)
-                    if not optional:
-                        failures.append(msg)
+                    failures.append(msg)
+                    missing_sources.append((part['name'], 'mcad'))
                 else:
-                    if not mcad.out(self.manifest) and not optional:
+                    source_path = mcad.path
+                    if not mcad.out(self.manifest):
                         failures.append(f"Failed to export or render {part['name']}")
 
             elif part["type"] == "ecad":
@@ -138,10 +142,11 @@ class Builder:
                 if not self.findEcad(ecad):
                     msg = "Was not able to find source file for " + part['name']
                     Logger.warn(msg)
-                    if not optional:
-                        failures.append(msg)
+                    failures.append(msg)
+                    missing_sources.append((part['name'], 'ecad'))
                 else:
-                    if not ecad.out(self.manifest) and not optional:
+                    source_path = os.path.join(ecad.path, part['name'] + ".kicad_pcb")
+                    if not ecad.out(self.manifest):
                         failures.append(f"Failed to export or render {part['name']}")
 
             elif part["type"] == "wcad":
@@ -151,18 +156,23 @@ class Builder:
             else:
                 Logger.warn("Part type '" + str(part["type"]) + "' for " + str(part["name"]) + " is unknown. Skipping.")
 
+            # Always list the part on the site, even if export/render failed
+            self._ensure_part_listed(part, sha, source_path)
+
         # save manifest to file
         with open(self.repoPath + "/autobom/manifest.json", "w") as outfile: 
             json.dump(self.manifest, outfile)
 
         self.renderSite()
 
+        self._report_bom_coverage(missing_sources)
+
         if failures:
             for failure in failures:
                 Logger.warn(failure)
             Logger.warn(f"Autobom finished with {len(failures)} failure(s)")
             # Default is not strict: a partial export still counts as success.
-            # Set "strict": true in autobom.json to fail the job on required-part errors.
+            # Set "strict": true in autobom.json to fail the job on any part error.
             if self.config.get("strict", False):
                 return False
             Logger.info("Ignoring part failures because autobom.json strict is not true")
@@ -170,6 +180,116 @@ class Builder:
 
         Logger.info("Autobom done!")
         return True
+
+    def _resolve_version(self, shortsha):
+        """Release tag on GitHub release runs; git short hash otherwise."""
+        if os.environ.get("GITHUB_EVENT_NAME") == "release":
+            tag = os.environ.get("GITHUB_REF_NAME")
+            if not tag:
+                ref = os.environ.get("GITHUB_REF", "")
+                if ref.startswith("refs/tags/"):
+                    tag = ref[len("refs/tags/"):]
+            if tag:
+                return tag
+        return shortsha
+
+    def _ensure_part_listed(self, part, sha, source_path):
+        """Add a BOM part to the manifest if export did not already record it."""
+        for existing in self.manifest["parts"]:
+            if existing.get("name") == part["name"] and existing.get("type") == part.get("type"):
+                return
+
+        entry = copy.deepcopy(part)
+        render = {"method_preference": "", "img_path": "", "3d_path": "", "kicad_path": ""}
+        ptype = part.get("type")
+        if ptype == "mcad":
+            method = part.get("render", self.config.get("mcad", {}).get("render", "src"))
+            render["img_path"] = "export/" + part["name"] + ".png"
+            if method == "src" and source_path:
+                render["method_preference"] = "3d"
+                render["3d_path"] = raw_source_url(
+                    self.config.get("source_url", ""), sha, self.repoPath, source_path
+                )
+            elif method == "img":
+                render["method_preference"] = "img"
+            else:
+                render["method_preference"] = "img"
+                if method not in ("src", "img"):
+                    render["img_path"] = method
+        elif ptype == "ecad":
+            method = part.get("render", self.config.get("ecad", {}).get("render", "src"))
+            render["img_path"] = "export/" + part["name"] + "/" + part["name"] + "-top.png"
+            if source_path:
+                render["kicad_path"] = raw_source_url(
+                    self.config.get("source_url", ""), sha, self.repoPath, source_path
+                )
+            if method == "src":
+                render["method_preference"] = "kicanvas"
+            elif method == "img":
+                render["method_preference"] = "img"
+            else:
+                render["method_preference"] = "img"
+                render["img_path"] = method
+        entry["render"] = render
+        self.manifest["parts"].append(entry)
+
+    def _mcad_search_root(self):
+        if "path" in self.config.get("mcad", {}):
+            return os.path.join(self.repoPath, self.config["mcad"]["path"])
+        return self.repoPath
+
+    def _ecad_search_root(self):
+        if "path" in self.config.get("ecad", {}):
+            return os.path.join(self.repoPath, self.config["ecad"]["path"])
+        return self.repoPath
+
+    def _skip_source_dir(self, dirname):
+        skip = {".git", "backups", "__pycache__", "renderQueue", "autobom", "index.3dshapes"}
+        return dirname in skip or dirname.endswith("-backups") or dirname.endswith(".3dshapes")
+
+    def _unused_source_files(self, search_path, extensions):
+        unused = []
+        bom_names = {part["name"].lower() for part in self.bom["parts"]}
+        if not os.path.isdir(search_path):
+            return unused
+        for root, dirs, files in os.walk(search_path):
+            dirs[:] = [d for d in dirs if not self._skip_source_dir(d)]
+            if any(self._skip_source_dir(part) for part in root.split(os.sep)):
+                continue
+            for name in files:
+                base, ext = os.path.splitext(name)
+                if ext.lower() not in extensions:
+                    continue
+                if base.lower() not in bom_names:
+                    unused.append(os.path.relpath(os.path.join(root, name), self.repoPath))
+        return sorted(unused)
+
+    def _report_bom_coverage(self, missing_sources):
+        unused_mcad = self._unused_source_files(self._mcad_search_root(), mcad_filetype)
+        unused_ecad = self._unused_source_files(self._ecad_search_root(), ecad_filetype)
+
+        Logger.info("----- BOM coverage -----")
+        if unused_mcad:
+            Logger.info(f"MCAD files in the repo not listed in the BOM ({len(unused_mcad)}):")
+            for path in unused_mcad:
+                Logger.info(f"  {path}")
+        else:
+            Logger.info("MCAD files in the repo not listed in the BOM: none")
+
+        if unused_ecad:
+            Logger.info(f"ECAD files in the repo not listed in the BOM ({len(unused_ecad)}):")
+            for path in unused_ecad:
+                Logger.info(f"  {path}")
+        else:
+            Logger.info("ECAD files in the repo not listed in the BOM: none")
+
+        if missing_sources:
+            Logger.info(f"BOM parts with no source file ({len(missing_sources)}):")
+            for name, ptype in missing_sources:
+                Logger.info(f"  {name} ({ptype})")
+        else:
+            Logger.info("BOM parts with no source file: none")
+        Logger.info("------------------------")
         
 
     def findMcad(self, mcad):
@@ -212,6 +332,20 @@ class Builder:
 
         return False
 
+    def _source_links(self, source):
+        if isinstance(source, (list, tuple)):
+            urls = [u for u in source if u]
+        elif source:
+            urls = [source]
+        else:
+            return ""
+        if len(urls) == 1:
+            return f'<a href="{urls[0]}" target="_blank" rel="noopener noreferrer">Link</a>'
+        return " ".join(
+            f'<a href="{url}" target="_blank" rel="noopener noreferrer">Link {i}</a>'
+            for i, url in enumerate(urls, 1)
+        )
+
     def renderSite(self):
 
         self.settings = {**default, **self.config}
@@ -247,7 +381,7 @@ class Builder:
             imgpath="{render.get("img_path", "")}"
             onclick="updateRender(this)"><th>{part["name"]} 
             </th><th>{part["quantity"]}
-            </th><th><a href="{part["source"]}">Link</a>
+            </th><th>{self._source_links(part.get("source"))}
             </th><th>{part["notes"]}
             </th></tr>
             """
@@ -292,9 +426,11 @@ footer = """
             </table>
         </div>
         <div id="render">
-            
+            <div id="render-toolbar" hidden>
+                <button type="button" id="view-src" class="view-toggle">Source</button>
+                <button type="button" id="view-img" class="view-toggle">Image</button>
+            </div>
             <div id="replace-with-render"><p style="margin-top:45%;">Click an item to view</p></div>
-            <div id="notes-render">notes</div>
         </div>
     </div>
 </body>

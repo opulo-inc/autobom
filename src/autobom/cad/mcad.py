@@ -15,12 +15,12 @@ export_options = ["step", "stl", "all"]
 
 
 def raw_source_url(source_url, sha, repo_path, file_path):
-    """Public URL for a file at this commit (jsDelivr, CORS-friendly from file://)."""
+    """GitHub raw URL for a file at this commit (the blob page is HTML, not the file)."""
     rel = os.path.relpath(file_path, repo_path).replace(os.sep, "/")
     base = (source_url or "").rstrip("/")
     if "github.com/" in base:
         repo = base.split("github.com/", 1)[1]
-        return f"https://cdn.jsdelivr.net/gh/{repo}@{sha}/{rel}"
+        return f"https://raw.githubusercontent.com/{repo}/{sha}/{rel}"
     return f"{base}/{rel}"
 
 
