@@ -135,7 +135,8 @@ class Builder:
                 else:
                     source_path = mcad.path
                     if not mcad.out(self.manifest):
-                        failures.append(f"Failed to export or render {part['name']}")
+                        detail = mcad.last_error or "unknown error"
+                        failures.append(f"Failed to export or render {part['name']}: {detail}")
 
             elif part["type"] == "ecad":
                 ecad = ECAD(part, self.config, sha, self.repoPath, self.abPath)
@@ -147,7 +148,8 @@ class Builder:
                 else:
                     source_path = os.path.join(ecad.path, part['name'] + ".kicad_pcb")
                     if not ecad.out(self.manifest):
-                        failures.append(f"Failed to export or render {part['name']}")
+                        detail = ecad.last_error or "unknown error"
+                        failures.append(f"Failed to export or render {part['name']}: {detail}")
 
             elif part["type"] == "wcad":
                 pass
@@ -352,14 +354,16 @@ class Builder:
             for i, url in enumerate(urls, 1)
         )
 
-    def _part_tags(self, part):
-        tags = []
+    def _part_type_tag(self, part):
         ptype = (part.get("type") or "").lower()
-        if ptype:
-            tags.append(f'<span class="tag tag-{ptype}">{ptype.upper()}</span>')
-        if part.get("optional"):
-            tags.append('<span class="tag tag-optional">optional</span>')
-        return " ".join(tags)
+        if not ptype:
+            return ""
+        return f'<span class="tag tag-{ptype}">{ptype.upper()}</span>'
+
+    def _part_optional_tag(self, part):
+        if not part.get("optional"):
+            return ""
+        return '<span class="tag tag-optional">optional</span>'
 
     def renderSite(self):
 
@@ -394,8 +398,10 @@ class Builder:
             3dpath="{render.get("3d_path", "")}"
             kipath="{render.get("kicad_path", "")}"
             imgpath="{render.get("img_path", "")}"
-            onclick="updateRender(this)"><th>{part["name"]} {self._part_tags(part)}
+            onclick="updateRender(this)"><th>{part["name"]}
             </th><th>{part["quantity"]}
+            </th><th>{self._part_type_tag(part)}
+            </th><th>{self._part_optional_tag(part)}
             </th><th>{self._source_links(part.get("source"))}
             </th><th>{part["notes"]}
             </th></tr>
@@ -410,7 +416,9 @@ class Builder:
 
 header = """
 <!DOCTYPE html>
+<html lang="en">
 <head>
+    <meta charset="utf-8">
     <link rel="stylesheet" href="web/style.css">
     <script src="web/kicanvas.js"></script>
     <script type="text/javascript" src="web/o3dv/o3dv.min.js"></script>
@@ -432,6 +440,8 @@ bulk = """
                 <tr class="titlerow">
                     <th>Name</th>
                     <th>Quantity</th>
+                    <th>Type</th>
+                    <th>Optional</th>
                     <th>Source</th>
                     <th>Notes</th>
                 </tr>
@@ -450,6 +460,7 @@ footer = """
         </div>
     </div>
 </body>
+</html>
 """;
 
 

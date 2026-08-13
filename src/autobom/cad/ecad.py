@@ -15,6 +15,8 @@ from ..base.socket_protocol import (
 
 class ECAD():
 
+    RENDER_TIMEOUT_S = 1800
+
     def __init__(self, part_info, settings, sha, repoPath, abPath):
 
         self.part_info = part_info
@@ -24,6 +26,7 @@ class ECAD():
         self.name = self.part_info["name"]
         self.repoPath = repoPath
         self.abPath = abPath
+        self.last_error = None
 
     def del_rw(self, action, name, exc):
         os.chmod(name, stat.S_IWRITE)
@@ -31,6 +34,7 @@ class ECAD():
 
     def out(self, manifest):
         """Export/render this part. Returns True on success, False on failure."""
+        self.last_error = None
         #using default settings, but allowing part-specific to override
         render_method = self.settings["ecad"]["render"]
         if "render" in self.part_info:
@@ -44,10 +48,11 @@ class ECAD():
             if self.outKicad(render_method, export_method, manifest):
                 Logger.info(f"Exported and rendered {self.part_info['name']}")
                 return True
-            Logger.warn(f"Failed to export or render {self.part_info['name']}")
+            Logger.warn(f"Failed to export or render {self.part_info['name']}: {self.last_error}")
             return False
 
-        Logger.warn(f"No supported KiCAD project found for {self.part_info['name']}")
+        self.last_error = f"No supported KiCAD project found for {self.part_info['name']}"
+        Logger.warn(self.last_error)
         return False
 
 
@@ -78,7 +83,7 @@ class ECAD():
                 client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 client_sock.settimeout(2)
                 client_sock.connect((host, port))
-                client_sock.settimeout(120)  # Set longer timeout for actual communication
+                client_sock.settimeout(self.RENDER_TIMEOUT_S)
                 break
             except (ConnectionRefusedError, OSError):
                 if client_sock:
@@ -86,8 +91,11 @@ class ECAD():
                 if attempt < max_retries - 1:
                     time.sleep(retry_interval)
                 else:
-                    Logger.warn(f"Could not connect to render server at {host}:{port} after {max_retries} attempts.")
-                    Logger.warn("Make sure Docker containers are running: docker-compose up -d")
+                    self.last_error = (
+                        f"Could not connect to KiCAD render server at {host}:{port} "
+                        f"after {max_retries} attempts (is docker-compose up?)"
+                    )
+                    Logger.warn(self.last_error)
                     return False
         
         try:
@@ -99,33 +107,36 @@ class ECAD():
                 request_id=request_id
             )
             send_message(client_sock, request)
-            Logger.info(f"Sent render request for {self.name}")
+            Logger.info(f"Sent render request for {self.name} (timeout {self.RENDER_TIMEOUT_S}s)")
             
             # Wait for response
             response = receive_message(client_sock)
             client_sock.close()
             
             if not response:
-                Logger.warn(f"No response received for {self.name}")
+                self.last_error = "No response received from KiCAD render server"
+                Logger.warn(f"{self.name}: {self.last_error}")
                 return False
             
             if response.get("status") != STATUS_SUCCESS:
-                error_msg = response.get("error", "Unknown error")
-                Logger.warn(f"Render failed for {self.name}: {error_msg}")
+                self.last_error = response.get("error", "Unknown error")
+                Logger.warn(f"Render failed for {self.name}: {self.last_error}")
                 return False
             
             Logger.info(f"Render completed successfully for {self.name}")
             
         except socket.timeout:
-            Logger.warn(f"Timeout waiting for render response for {self.name}")
+            self.last_error = f"Timeout after {self.RENDER_TIMEOUT_S}s waiting for KiCAD/kibot render"
+            Logger.warn(f"{self.name}: {self.last_error}")
             return False
         except ConnectionRefusedError:
-            Logger.warn(f"Connection refused to render server at {host}:{port}.")
-            Logger.warn("The server isn't accepting connections.")
+            self.last_error = f"Connection refused to KiCAD render server at {host}:{port}"
+            Logger.warn(self.last_error)
             Logger.warn("Check container logs: docker-compose -f docker-compose-local.yaml logs kicad")
             return False
         except Exception as e:
-            Logger.warn(f"Error communicating with render server for {self.name}: {str(e)}")
+            self.last_error = f"Error communicating with KiCAD render server: {e}"
+            Logger.warn(f"{self.name}: {self.last_error}")
             Logger.warn(f"Check container logs: docker-compose -f docker-compose-local.yaml logs")
             return False
 
@@ -140,7 +151,8 @@ class ECAD():
                 except Exception:
                     pass
         except Exception as e:
-            Logger.warn(f"Error copying export files for {self.name}: {str(e)}")
+            self.last_error = f"Error copying KiCAD export files: {e}"
+            Logger.warn(f"{self.name}: {self.last_error}")
             return False
 
         pcb_src = os.path.join(self.path, self.name + ".kicad_pcb")

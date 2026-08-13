@@ -69,7 +69,7 @@ function showSrcLoading(render, imgpath, viewerHtml) {
         ? "<img class='src-placeholder' src='" + imgpath + "' alt='preview' />"
         : "";
     render.innerHTML =
-        "<div class='src-loading-toast'>Loading source…</div>" +
+        "<div class='src-loading-toast'>Loading source...</div>" +
         img +
         "<div class='src-viewer'>" + viewerHtml + "</div>";
 }
@@ -113,7 +113,7 @@ function startKicanvas(render, imgpath, url) {
     showSrcLoading(
         render,
         imgpath,
-        "<kicanvas-embed style='height:100%;' src=\"" + url + "\" controls=\"basic\"></kicanvas-embed>"
+        "<kicanvas-embed style='height:100%;' src=\"" + url + "\" controls=\"full\"></kicanvas-embed>"
     );
     let embed = render.querySelector("kicanvas-embed");
     if (!embed) return;

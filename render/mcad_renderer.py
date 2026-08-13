@@ -70,8 +70,22 @@ def _find_export_object(doc, name):
         obj for obj in doc.Objects
         if obj.isDerivedFrom("PartDesign::Body") or obj.Label == "Body"
     ]
+    body_info = []
     for body in bodies:
-        if hasattr(body, "Shape") and _shape_has_volume(body.Shape):
+        vol = None
+        has = False
+        try:
+            if hasattr(body, "Shape"):
+                has = _shape_has_volume(body.Shape)
+                try:
+                    vol = float(body.Shape.Volume)
+                except Exception:
+                    vol = None
+        except Exception as e:
+            body_info.append(f"{body.Name}/{body.Label}: shape-error({e})")
+            continue
+        body_info.append(f"{body.Name}/{body.Label}: volume={vol}")
+        if has:
             return body
 
     # Part containers (assemblies / multi-body parts)
@@ -86,7 +100,12 @@ def _find_export_object(doc, name):
             if _shape_has_volume(obj.Shape):
                 return obj
 
-    raise Exception(f"No exportable solid found in model {name}")
+    labels = [f"{o.Name}:{o.TypeId}/{o.Label}" for o in doc.Objects[:40]]
+    raise Exception(
+        f"No exportable solid found in model {name}. "
+        f"objects={len(doc.Objects)}; bodies=[{'; '.join(body_info) or 'none'}]; "
+        f"sample=[{'; '.join(labels)}]"
+    )
 
 
 def _export_step(obj, step_path):
@@ -107,12 +126,16 @@ def renderFreecad(path, part_name):
     if FreeCAD is None:
         return "FreeCAD is not available (import failed at server startup)"
     doc = None
+    t0 = time.time()
     try:
         os.makedirs(freecadOut, exist_ok=True)
+        size_mb = os.path.getsize(path) / (1024 * 1024)
+        print(f"Opening FreeCAD file {path} ({size_mb:.1f} MiB) for {part_name}")
 
         # we just barf out an stl, step, and image
         doc = FreeCAD.open(path)
         name = Path(path).stem
+        print(f"Opened {name} with {len(doc.Objects)} objects in {time.time()-t0:.1f}s")
 
         # Recompute the model to ensure its valid and does not contain broken references or edges
         for obj in doc.Objects:
@@ -125,10 +148,12 @@ def renderFreecad(path, part_name):
             print(f"Recompute warning for {name}: {recompute_err}")
 
         obj = _find_export_object(doc, name)
+        print(f"Exporting object {obj.Name}/{obj.Label} ({obj.TypeId})")
         shape = obj.Shape
 
         # generate STEP
         _export_step(obj, os.path.join(freecadOut, name + ".step"))
+        print(f"STEP done for {name} at {time.time()-t0:.1f}s")
 
         # Generate STL (coarse deflection keeps memory down on GHA runners)
         mesh = doc.addObject("Mesh::Feature", "Mesh")
@@ -139,17 +164,21 @@ def renderFreecad(path, part_name):
             Relative=False,
         )
         mesh.Mesh.write(os.path.join(freecadOut, name + ".stl"))
+        print(f"STL done for {name} at {time.time()-t0:.1f}s")
 
         # Preview PNG is best-effort; STEP/STL success still counts
         try:
             _renderImageFromSTL(name, freecadOut + name + ".stl", freecadOut)
+            print(f"PNG done for {name} at {time.time()-t0:.1f}s")
         except Exception as img_err:
             print(f"Preview image failed for {name} (continuing): {img_err}")
 
+        print(f"FreeCAD render ok for {name} in {time.time()-t0:.1f}s")
         return None
     except Exception as e:
-        print(f"Error rendering FreeCAD file {path}: {traceback.format_exc()}")
-        return str(e)
+        tb = traceback.format_exc()
+        print(f"Error rendering FreeCAD file {path}: {tb}")
+        return f"{e} (after {time.time()-t0:.1f}s)"
     finally:
         if doc is not None:
             try:

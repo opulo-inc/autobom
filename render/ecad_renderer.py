@@ -31,6 +31,85 @@ def _export_has_files(export_path):
     return False
 
 
+def _repair_sheet_instances(sch_path):
+    """Fill incomplete sheet_instances so kibot can load hierarchical schematics.
+
+    Some KiCad 8 projects only store `(path "/" (page "1"))` while kibot/KiCad 10
+    look up UUID paths like `/00000000-.../child-uuid`. Synthesize those entries
+    from the root and sheet UUIDs already in the file.
+    """
+    import re
+
+    try:
+        with open(sch_path, "r", encoding="utf-8") as f:
+            text = f.read()
+    except OSError as e:
+        print(f"sheet_instances repair: could not read {sch_path}: {e}")
+        return
+
+    if "(sheet_instances" not in text:
+        return
+
+    root_m = re.search(r'^\s*\(uuid\s+"([^"]+)"', text, re.M)
+    root_uuid = root_m.group(1) if root_m else None
+    nil = "00000000-0000-0000-0000-000000000000"
+
+    # Sheet block uuids (first uuid inside each (sheet ...))
+    sheet_uuids = []
+    for m in re.finditer(r'\(sheet\b', text):
+        chunk = text[m.start(): m.start() + 2500]
+        um = re.search(r'\(uuid\s+"([^"]+)"', chunk)
+        if um:
+            sheet_uuids.append(um.group(1))
+
+    # Prefer page numbers from per-sheet instances when present
+    page_by_sheet = {}
+    for su in sheet_uuids:
+        pm = re.search(
+            rf'\(uuid\s+"{re.escape(su)}"[\s\S]*?\(instances[\s\S]*?\(page\s+"(\d+)"\)',
+            text,
+        )
+        if pm:
+            page_by_sheet[su] = pm.group(1)
+
+    paths = []  # (path, page) unique order
+    seen = set()
+
+    def add(path, page):
+        if path in seen:
+            return
+        seen.add(path)
+        paths.append((path, page))
+
+    add("/", "1")
+    add(f"/{nil}", "1")
+    if root_uuid:
+        add(f"/{root_uuid}", "1")
+
+    for i, su in enumerate(sheet_uuids):
+        page = page_by_sheet.get(su, str(i + 2))
+        add(f"/{nil}/{su}", page)
+        if root_uuid:
+            add(f"/{root_uuid}/{su}", page)
+
+    body = "\n".join(
+        f'\t\t(path "{p}"\n\t\t\t(page "{pg}")\n\t\t)' for p, pg in paths
+    )
+    new_block = f"(sheet_instances\n{body}\n\t)"
+    new_text, n = re.subn(
+        r"\(sheet_instances\b[\s\S]*?\n\t\)",
+        new_block,
+        text,
+        count=1,
+    )
+    if n != 1:
+        print(f"sheet_instances repair: no block replaced in {sch_path}")
+        return
+    with open(sch_path, "w", encoding="utf-8") as f:
+        f.write(new_text)
+    print(f"sheet_instances repair: wrote {len(paths)} paths for {os.path.basename(sch_path)}")
+
+
 def renderKicad(path, name):
     """Render a KiCAD project. Returns None on success, or an error string on failure."""
     try:
@@ -45,17 +124,21 @@ def renderKicad(path, name):
 
         config_path = "/autobom/render/config.kibot.yaml"
         justNeedsExt = os.path.join(path, name)
+        sch_path = justNeedsExt + ".kicad_sch"
+        pcb_path = justNeedsExt + ".kicad_pcb"
 
-        result = subprocess.run(
-            [
-                "kibot", "-c", str(config_path),
-                "-e", justNeedsExt + ".kicad_sch",
-                "-b", justNeedsExt + ".kicad_pcb",
-                "-d", export_path,
-            ],
-            capture_output=True,
-            text=True,
-        )
+        if os.path.isfile(sch_path):
+            _repair_sheet_instances(sch_path)
+
+        cmd = [
+            "kibot", "-c", str(config_path),
+            "-e", sch_path,
+            "-b", pcb_path,
+            "-d", export_path,
+            "--dont-stop",
+        ]
+        print(f"Running kibot for {name}: {' '.join(cmd)}")
+        result = subprocess.run(cmd, capture_output=True, text=True)
         if result.stdout:
             print(result.stdout)
         if result.stderr:
@@ -67,10 +150,16 @@ def renderKicad(path, name):
             return None
 
         detail = (result.stderr or result.stdout or "").strip()
-        return f"kibot failed (exit {result.returncode}): {detail[:500] or 'no output'}"
+        # Prefer the last ERROR lines for the client-facing message
+        err_lines = [
+            ln for ln in detail.splitlines()
+            if "ERROR:" in ln or "error:" in ln
+        ]
+        summary = " | ".join(err_lines[-5:]) if err_lines else detail
+        return f"kibot failed (exit {result.returncode}): {summary[:2000] or 'no output'}"
     except Exception as e:
         print(f"Error rendering KiCAD project {name}: {traceback.format_exc()}")
-        return str(e)
+        return f"{e}\n{traceback.format_exc()[-1500:]}"
 
 
 def handle_request(client_sock, addr):

@@ -26,6 +26,9 @@ def raw_source_url(source_url, sha, repo_path, file_path):
 
 class MCAD():
 
+    # Large FCStd files (e.g. x-gantry-back ~60MiB) can take many minutes.
+    RENDER_TIMEOUT_S = 1800
+
     def __init__(self, part_info, settings, sha, repoPath, abPath):
 
         self.part_info = part_info
@@ -35,10 +38,12 @@ class MCAD():
         self.sha = sha
         self.repoPath = repoPath
         self.abPath = abPath
+        self.last_error = None
             
 
     def out(self, manifest):
         """Export/render this part. Returns True on success, False on failure."""
+        self.last_error = None
         #using default settings, but allowing part-specific to override
         render_method = self.settings["mcad"]["render"]
         if "render" in self.part_info:
@@ -55,24 +60,30 @@ class MCAD():
             if self.outFreecad(render_method, export_method, manifest):
                 Logger.info(f"Exported and rendered {self.part_info['name']}")
                 return True
-            Logger.warn(f"Failed to export or render {self.part_info['name']}")
+            Logger.warn(f"Failed to export or render {self.part_info['name']}: {self.last_error}")
             return False
 
         elif ext.lower() == ".scad":
             if self.outOpenscad(render_method, export_method, manifest):
                 Logger.info(f"Exported and rendered {self.part_info['name']}")
                 return True
-            Logger.warn(f"Failed to export or render {self.part_info['name']}")
+            Logger.warn(f"Failed to export or render {self.part_info['name']}: {self.last_error}")
             return False
 
         else:
-            Logger.warn(f'Found file {base}{ext} but {ext} files are not supported.')
+            self.last_error = f"Found file {base}{ext} but {ext} files are not supported."
+            Logger.warn(self.last_error)
             return False
 
 
     def outFreecad(self, render_method, export_method, manifest):
         Logger.info(f"Rendering FreeCAD file: {self.name}")
-    
+        try:
+            size_mb = os.path.getsize(self.path) / (1024 * 1024)
+            Logger.info(f"Source {self.path} ({size_mb:.1f} MiB)")
+        except OSError:
+            pass
+
         # Copy file to render queue input directory
         renderInputPath = self.abPath + "/renderQueue/freecad/in/" + self.name + ".FCStd"
         os.makedirs(os.path.dirname(renderInputPath), exist_ok=True)
@@ -97,7 +108,7 @@ class MCAD():
                 client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 client_sock.settimeout(2)
                 client_sock.connect((host, port))
-                client_sock.settimeout(120)  # Set longer timeout for actual communication
+                client_sock.settimeout(self.RENDER_TIMEOUT_S)
                 break
             except (ConnectionRefusedError, OSError):
                 if client_sock:
@@ -105,8 +116,11 @@ class MCAD():
                 if attempt < max_retries - 1:
                     time.sleep(retry_interval)
                 else:
-                    Logger.warn(f"Could not connect to render server at {host}:{port} after {max_retries} attempts.")
-                    Logger.warn("Make sure Docker containers are running: docker-compose up -d")
+                    self.last_error = (
+                        f"Could not connect to FreeCAD render server at {host}:{port} "
+                        f"after {max_retries} attempts (is docker-compose up?)"
+                    )
+                    Logger.warn(self.last_error)
                     return False
         
         try:
@@ -118,33 +132,39 @@ class MCAD():
                 file_type="fcstd"
             )
             send_message(client_sock, request)
-            Logger.info(f"Sent render request for {self.name}")
+            Logger.info(f"Sent render request for {self.name} (timeout {self.RENDER_TIMEOUT_S}s)")
             
             # Wait for response
             response = receive_message(client_sock)
             client_sock.close()
             
             if not response:
-                Logger.warn(f"No response received for {self.name}")
+                self.last_error = "No response received from FreeCAD render server"
+                Logger.warn(f"{self.name}: {self.last_error}")
                 return False
             
             if response.get("status") != STATUS_SUCCESS:
-                error_msg = response.get("error", "Unknown error")
-                Logger.warn(f"Render failed for {self.name}: {error_msg}")
+                self.last_error = response.get("error", "Unknown error")
+                Logger.warn(f"Render failed for {self.name}: {self.last_error}")
                 return False
             
             Logger.info(f"Render completed successfully for {self.name}")
             
         except socket.timeout:
-            Logger.warn(f"Timeout waiting for render response for {self.name}")
+            self.last_error = (
+                f"Timeout after {self.RENDER_TIMEOUT_S}s waiting for FreeCAD render. "
+                f"Large/complex models may need more time or more RAM."
+            )
+            Logger.warn(f"{self.name}: {self.last_error}")
             return False
         except ConnectionRefusedError:
-            Logger.warn(f"Connection refused to render server at {host}:{port}.")
-            Logger.warn("The server isn't accepting connections.")
+            self.last_error = f"Connection refused to FreeCAD render server at {host}:{port}"
+            Logger.warn(self.last_error)
             Logger.warn("Check container logs: docker-compose -f docker-compose-local.yaml logs freecad")
             return False
         except Exception as e:
-            Logger.warn(f"Error communicating with render server for {self.name}: {str(e)}")
+            self.last_error = f"Error communicating with FreeCAD render server: {e}"
+            Logger.warn(f"{self.name}: {self.last_error}")
             Logger.warn(f"Check container logs: docker-compose -f docker-compose-local.yaml logs")
             return False
 
@@ -157,7 +177,8 @@ class MCAD():
                     shutil.copy(source_file, self.repoPath + "/autobom/export")
                     os.remove(source_file)
         except Exception as e:
-            Logger.warn(f"Error copying export files for {self.name}: {str(e)}")
+            self.last_error = f"Error copying FreeCAD export files: {e}"
+            Logger.warn(f"{self.name}: {self.last_error}")
             return False
 
         #================
@@ -222,7 +243,7 @@ class MCAD():
                 client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 client_sock.settimeout(2)
                 client_sock.connect((host, port))
-                client_sock.settimeout(120)  # Set longer timeout for actual communication
+                client_sock.settimeout(self.RENDER_TIMEOUT_S)
                 break
             except (ConnectionRefusedError, OSError):
                 if client_sock:
@@ -230,8 +251,11 @@ class MCAD():
                 if attempt < max_retries - 1:
                     time.sleep(retry_interval)
                 else:
-                    Logger.warn(f"Could not connect to render server at {host}:{port} after {max_retries} attempts.")
-                    Logger.warn("Make sure Docker containers are running: docker-compose up -d")
+                    self.last_error = (
+                        f"Could not connect to OpenSCAD render server at {host}:{port} "
+                        f"after {max_retries} attempts"
+                    )
+                    Logger.warn(self.last_error)
                     return False
         
         try:
@@ -243,33 +267,36 @@ class MCAD():
                 file_type="scad"
             )
             send_message(client_sock, request)
-            Logger.info(f"Sent render request for {self.name}")
+            Logger.info(f"Sent render request for {self.name} (timeout {self.RENDER_TIMEOUT_S}s)")
             
             # Wait for response
             response = receive_message(client_sock)
             client_sock.close()
             
             if not response:
-                Logger.warn(f"No response received for {self.name}")
+                self.last_error = "No response received from OpenSCAD render server"
+                Logger.warn(f"{self.name}: {self.last_error}")
                 return False
             
             if response.get("status") != STATUS_SUCCESS:
-                error_msg = response.get("error", "Unknown error")
-                Logger.warn(f"Render failed for {self.name}: {error_msg}")
+                self.last_error = response.get("error", "Unknown error")
+                Logger.warn(f"Render failed for {self.name}: {self.last_error}")
                 return False
             
             Logger.info(f"Render completed successfully for {self.name}")
             
         except socket.timeout:
-            Logger.warn(f"Timeout waiting for render response for {self.name}")
+            self.last_error = f"Timeout after {self.RENDER_TIMEOUT_S}s waiting for OpenSCAD render"
+            Logger.warn(f"{self.name}: {self.last_error}")
             return False
         except ConnectionRefusedError:
-            Logger.warn(f"Connection refused to render server at {host}:{port}.")
-            Logger.warn("The server isn't accepting connections.")
+            self.last_error = f"Connection refused to OpenSCAD render server at {host}:{port}"
+            Logger.warn(self.last_error)
             Logger.warn("Check container logs: docker-compose -f docker-compose-local.yaml logs freecad")
             return False
         except Exception as e:
-            Logger.warn(f"Error communicating with render server for {self.name}: {str(e)}")
+            self.last_error = f"Error communicating with OpenSCAD render server: {e}"
+            Logger.warn(f"{self.name}: {self.last_error}")
             Logger.warn(f"Check container logs: docker-compose -f docker-compose-local.yaml logs")
             return False
 
@@ -282,7 +309,8 @@ class MCAD():
                     shutil.copy(source_file, self.repoPath + "/autobom/export")
                     os.remove(source_file)
         except Exception as e:
-            Logger.warn(f"Error copying export files for {self.name}: {str(e)}")
+            self.last_error = f"Error copying OpenSCAD export files: {e}"
+            Logger.warn(f"{self.name}: {self.last_error}")
             return False
 
         # update manifest
