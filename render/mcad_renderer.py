@@ -51,6 +51,9 @@ freecadOut = "/renderQueue/freecad/out/"
 openscadIn = "/renderQueue/openscad/in/"
 openscadOut = "/renderQueue/openscad/out/"
 
+# FreeCAD (and OpenSCAD+Xvfb) are not safe to use from multiple threads.
+_render_lock = threading.Lock()
+
 def _shape_has_volume(shape):
     if shape is None or shape.isNull():
         return False
@@ -87,9 +90,10 @@ def _find_export_shape(doc, name):
 
 
 def renderFreecad(path, part_name):
-    """Render a FreeCAD file and return success status."""
+    """Render a FreeCAD file. Returns None on success, or an error string on failure."""
     if FreeCAD is None:
-        raise Exception("FreeCAD is not available")
+        return "FreeCAD is not available (import failed at server startup)"
+    doc = None
     try:
         # we just barf out an stl, step, and image
         doc = FreeCAD.open(path)
@@ -110,51 +114,81 @@ def renderFreecad(path, part_name):
         # generate STEP
         shape.exportStep(freecadOut + name + ".step")
 
-        # Generate STL
+        # Generate STL (coarse deflection keeps memory down on GHA runners)
         mesh = doc.addObject("Mesh::Feature", "Mesh")
-        mesh.Mesh = MeshPart.meshFromShape(Shape=shape, LinearDeflection=0.01, AngularDeflection=0.025, Relative=False)
+        mesh.Mesh = MeshPart.meshFromShape(
+            Shape=shape,
+            LinearDeflection=0.1,
+            AngularDeflection=0.5,
+            Relative=False,
+        )
         mesh.Mesh.write(freecadOut + name + ".stl")
 
-        time.sleep(1)
+        # Preview PNG is best-effort; STEP/STL success still counts
+        try:
+            _renderImageFromSTL(name, freecadOut + name + ".stl", freecadOut)
+        except Exception as img_err:
+            print(f"Preview image failed for {name} (continuing): {img_err}")
 
-        _renderImageFromSTL(name, freecadOut + name + ".stl", freecadOut)
-        
-        FreeCAD.closeDocument(doc.Name)
-        return True
+        return None
     except Exception as e:
         print(f"Error rendering FreeCAD file {path}: {traceback.format_exc()}")
-        if 'doc' in locals():
+        return str(e)
+    finally:
+        if doc is not None:
             try:
                 FreeCAD.closeDocument(doc.Name)
-            except:
+            except Exception:
                 pass
-        return False
 
 def renderOpenscad(path, part_name):
-    """Render an OpenSCAD file and return success status."""
+    """Render an OpenSCAD file. Returns None on success, or an error string on failure."""
     try:
         _renderSTLFromOpenscad(path)
-        _renderImageFromOpenscad(path)
-        return True
+        try:
+            _renderImageFromOpenscad(path)
+        except Exception as img_err:
+            print(f"Preview image failed for {part_name} (continuing): {img_err}")
+        return None
     except Exception as e:
         print(f"Error rendering OpenSCAD file {path}: {traceback.format_exc()}")
-        return False
+        return str(e)
 
 def _renderImageFromSTL(name, stlPath, outPath):
 
-    file=os.path.abspath(stlPath)
+    scad_path = outPath + "render.scad"
+    png_path = outPath + name + ".png"
 
-    f = open(outPath+"render.scad", "w")
-    f.write("import(\"")
-    f.write(stlPath)
-    f.write("\", convexity=3);")
-    f.close()
+    with open(scad_path, "w") as f:
+        f.write(f'import("{stlPath}", convexity=3);')
 
     print("made openscad file, time to render image")
-        
-    subprocess.call(["openscad", "-o", outPath+name+".png", "--quiet", "--render", "--projection=o", "--viewall","--colorscheme","BeforeDawn", "--imgsize", "1028,1028", "--hardwarnings", outPath+"render.scad" ], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
-    os.remove(outPath+"render.scad")
+    result = subprocess.run(
+        [
+            "openscad",
+            "-o", png_path,
+            "--quiet",
+            "--render",
+            "--projection=o",
+            "--viewall",
+            "--colorscheme", "BeforeDawn",
+            "--imgsize", "512,512",
+            scad_path,
+        ],
+        capture_output=True,
+        text=True,
+    )
+    try:
+        os.remove(scad_path)
+    except OSError:
+        pass
+
+    if result.returncode != 0 or not os.path.isfile(png_path) or os.path.getsize(png_path) == 0:
+        raise RuntimeError(
+            f"openscad png failed (exit {result.returncode}): "
+            f"{(result.stderr or result.stdout or '').strip()[:500]}"
+        )
 
 def _renderSTLFromOpenscad(path):
     # takes no arguments, can only export stl
@@ -187,54 +221,55 @@ def handle_request(client_sock, addr):
         request_id = message.get("request_id")
         
         print(f"Received render request for {part_name} (type: {file_type})")
-        
-        # Determine input path based on file type
-        if file_type == "fcstd":
-            input_path = os.path.join(freecadIn, part_name + ".FCStd")
-            if not os.path.exists(input_path):
-                error_msg = create_error(part_name, f"File not found: {input_path}", request_id)
+
+        with _render_lock:
+            # Determine input path based on file type
+            if file_type == "fcstd":
+                input_path = os.path.join(freecadIn, part_name + ".FCStd")
+                if not os.path.exists(input_path):
+                    error_msg = create_error(part_name, f"File not found: {input_path}", request_id)
+                    send_message(client_sock, error_msg)
+                    return
+
+                err = renderFreecad(input_path, part_name)
+                if err is None:
+                    # Clean up input file
+                    os.remove(input_path)
+                    response = create_response(
+                        request_id, STATUS_SUCCESS, part_name,
+                        output_dir=freecadOut
+                    )
+                else:
+                    response = create_response(
+                        request_id, STATUS_FAILURE, part_name,
+                        error=err
+                    )
+
+            elif file_type == "scad":
+                input_path = os.path.join(openscadIn, part_name + ".scad")
+                if not os.path.exists(input_path):
+                    error_msg = create_error(part_name, f"File not found: {input_path}", request_id)
+                    send_message(client_sock, error_msg)
+                    return
+
+                err = renderOpenscad(input_path, part_name)
+                if err is None:
+                    # Clean up input file
+                    os.remove(input_path)
+                    response = create_response(
+                        request_id, STATUS_SUCCESS, part_name,
+                        output_dir=openscadOut
+                    )
+                else:
+                    response = create_response(
+                        request_id, STATUS_FAILURE, part_name,
+                        error=err
+                    )
+            else:
+                error_msg = create_error(part_name, f"Unknown file type: {file_type}", request_id)
                 send_message(client_sock, error_msg)
                 return
-            
-            success = renderFreecad(input_path, part_name)
-            if success:
-                # Clean up input file
-                os.remove(input_path)
-                response = create_response(
-                    request_id, STATUS_SUCCESS, part_name,
-                    output_dir=freecadOut
-                )
-            else:
-                response = create_response(
-                    request_id, STATUS_FAILURE, part_name,
-                    error="Rendering failed"
-                )
-        
-        elif file_type == "scad":
-            input_path = os.path.join(openscadIn, part_name + ".scad")
-            if not os.path.exists(input_path):
-                error_msg = create_error(part_name, f"File not found: {input_path}", request_id)
-                send_message(client_sock, error_msg)
-                return
-            
-            success = renderOpenscad(input_path, part_name)
-            if success:
-                # Clean up input file
-                os.remove(input_path)
-                response = create_response(
-                    request_id, STATUS_SUCCESS, part_name,
-                    output_dir=openscadOut
-                )
-            else:
-                response = create_response(
-                    request_id, STATUS_FAILURE, part_name,
-                    error="Rendering failed"
-                )
-        else:
-            error_msg = create_error(part_name, f"Unknown file type: {file_type}", request_id)
-            send_message(client_sock, error_msg)
-            return
-        
+
         send_message(client_sock, response)
         print(f"Completed render request for {part_name}: {response['status']}")
         
@@ -288,10 +323,8 @@ def start_socket_server():
     while True:
         try:
             client_sock, addr = server_sock.accept()
-            # Handle each request in a separate thread
-            thread = threading.Thread(target=handle_request, args=(client_sock, addr))
-            thread.daemon = True
-            thread.start()
+            # Handle requests one at a time — FreeCAD is not thread-safe.
+            handle_request(client_sock, addr)
         except KeyboardInterrupt:
             break
         except Exception as e:

@@ -63,6 +63,14 @@ runs:
         name: Autobom
         path: ./autobom
 
+    - name: Dump render engine logs
+      if: failure()
+      shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+      run: |
+        docker compose -f "${{ github.action_path }}/docker-compose.yaml" logs --no-color --tail=200 || true
+
     - name: Stop Render Engines
       if: always()
       shell: bash
