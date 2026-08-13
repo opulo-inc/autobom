@@ -37,10 +37,10 @@ RUN apt-get update && \
 # OPENSCAD INSTALL
 # ---------------
 
-# installs openscad from ppa, plus xvfb for rendering with openscad
-RUN add-apt-repository ppa:openscad/releases && \
-    apt update && \
-    apt-get -y install openscad xvfb
+# Ubuntu universe (avoid the OpenSCAD PPA — Launchpad GPG fetches time out in CI)
+RUN apt-get update && \
+    apt-get -y install --no-install-recommends openscad xvfb && \
+    rm -rf /var/lib/apt/lists/*
 
 # ---------------
 # FREECAD INSTALL
