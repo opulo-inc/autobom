@@ -24,8 +24,38 @@ table {
 h1 {
     color:white;
 }
-.optional {
-    background-color: #430;
+.tag {
+    display: inline-block;
+    font-size: 0.68em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    padding: 0.12em 0.45em;
+    margin-left: 0.45em;
+    border-radius: 3px;
+    vertical-align: middle;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+
+.tag-mcad {
+    background: #1e3a5f;
+    color: #9ec9f0;
+}
+
+.tag-ecad {
+    background: #1e4a32;
+    color: #8fd9a8;
+}
+
+.tag-wcad,
+.tag-misc {
+    background: #3a3a3a;
+    color: #ccc;
+}
+
+.tag-optional {
+    background: #5a3a10;
+    color: #f0c060;
 }
 tr.titlerow th {
     background-color: goldenrod;
@@ -53,6 +83,23 @@ img {
     height:auto;
 }
 
+.preview-img,
+.src-placeholder {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    z-index: 1;
+}
+
+.empty-preview {
+    color: #333;
+}
+
 tr:hover {
     background-color: #444;
 }
@@ -73,17 +120,35 @@ tr:hover {
 
 #bom-items {
     flex: 1 1 0;
+    min-width: 200px;
     min-height: 0;
     overflow-y: auto;
 }
 
+#splitter {
+    flex: 0 0 6px;
+    cursor: col-resize;
+    background: #fff;
+    touch-action: none;
+    z-index: 2;
+}
+
+#splitter:hover,
+body.resizing #splitter {
+    background: goldenrod;
+}
+
+body.resizing {
+    cursor: col-resize;
+    user-select: none;
+}
+
 #render {
     flex: 0 0 40%;
-    min-width: 40%;
-    max-width: 40%;
+    width: 40%;
+    min-width: 240px;
     min-height: 0;
     text-align: center;
-    border-left: 2px solid #fff;
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -126,6 +191,9 @@ tr:hover {
     overflow: hidden;
     text-align: center;
     position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .src-loading-toast {
@@ -138,16 +206,6 @@ tr:hover {
     color: #fff;
     padding: 0.6em 1em;
     font-size: 0.9em;
-}
-
-.src-placeholder {
-    position: absolute;
-    inset: 0;
-    margin: auto;
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain;
-    z-index: 1;
 }
 
 .src-viewer {

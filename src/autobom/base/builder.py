@@ -346,6 +346,15 @@ class Builder:
             for i, url in enumerate(urls, 1)
         )
 
+    def _part_tags(self, part):
+        tags = []
+        ptype = (part.get("type") or "").lower()
+        if ptype:
+            tags.append(f'<span class="tag tag-{ptype}">{ptype.upper()}</span>')
+        if part.get("optional"):
+            tags.append('<span class="tag tag-optional">optional</span>')
+        return " ".join(tags)
+
     def renderSite(self):
 
         self.settings = {**default, **self.config}
@@ -362,7 +371,7 @@ class Builder:
         gitCommit = self.manifest['shortsha']
 
         title = "<h1>" + str(self.manifest["name"]) + " BOM - " + str(self.manifest["version"]) + "</h1>"
-        source = "<a href='" + githubLink + "' target='_blank' rel='noopener noreferrer'><h4>" + gitCommit + "</h4></a>"
+        source = "<a href='" + githubLink.rstrip("/") + "/tree/" + gitCommit + "' target='_blank' rel='noopener noreferrer'><h4>" + gitCommit + "</h4></a>"
 
         f.write(title)
         f.write(source)
@@ -379,7 +388,7 @@ class Builder:
             3dpath="{render.get("3d_path", "")}"
             kipath="{render.get("kicad_path", "")}"
             imgpath="{render.get("img_path", "")}"
-            onclick="updateRender(this)"><th>{part["name"]} 
+            onclick="updateRender(this)"><th>{part["name"]} {self._part_tags(part)}
             </th><th>{part["quantity"]}
             </th><th>{self._source_links(part.get("source"))}
             </th><th>{part["notes"]}
@@ -425,12 +434,13 @@ bulk = """
 footer = """
             </table>
         </div>
+        <div id="splitter" role="separator" aria-orientation="vertical" aria-label="Resize views"></div>
         <div id="render">
             <div id="render-toolbar" hidden>
                 <button type="button" id="view-src" class="view-toggle">Source</button>
                 <button type="button" id="view-img" class="view-toggle">Image</button>
             </div>
-            <div id="replace-with-render"><p style="margin-top:45%;">Click an item to view</p></div>
+            <div id="replace-with-render"><p class="empty-preview">Click an item to view</p></div>
         </div>
     </div>
 </body>

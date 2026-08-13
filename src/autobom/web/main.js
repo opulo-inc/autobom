@@ -47,9 +47,9 @@ function loadSource(url) {
 
 function showImage(render, imgpath) {
     if (imgpath) {
-        render.innerHTML = "<img src='" + imgpath + "' alt='preview' />";
+        render.innerHTML = "<img class='preview-img' src='" + imgpath + "' alt='preview' />";
     } else {
-        render.innerHTML = "<p style='margin-top:45%;'>No preview</p>";
+        render.innerHTML = "<p class='empty-preview'>No preview</p>";
     }
 }
 
@@ -109,32 +109,29 @@ function start3dViewer(render, imgpath, url) {
 }
 
 function startKicanvas(render, imgpath, url) {
-    showSrcLoading(render, imgpath, "");
-    loadSource(url).then(function (entry) {
-        let viewer = render.querySelector(".src-viewer");
-        if (!viewer) return;
-        viewer.innerHTML = "<kicanvas-embed style='height:100%;' src=\"" + entry.blobUrl + "\" controls=\"basic\"></kicanvas-embed>";
-        let embed = viewer.querySelector("kicanvas-embed");
-        let done = false;
-        let complete = function (ok) {
-            if (done) return;
-            done = true;
-            finishSrcLoad(render, ok);
-        };
-        if (embed) {
-            embed.addEventListener("error", function () { complete(false); });
-            let obs = new MutationObserver(function () {
-                if (embed.loaded || embed.hasAttribute("loaded")) {
-                    obs.disconnect();
-                    complete(true);
-                }
-            });
-            obs.observe(embed, { attributes: true });
+    // KiCanvas picks file type from the URL path; blob: UUIDs have no .kicad_pcb suffix.
+    showSrcLoading(
+        render,
+        imgpath,
+        "<kicanvas-embed style='height:100%;' src=\"" + url + "\" controls=\"basic\"></kicanvas-embed>"
+    );
+    let embed = render.querySelector("kicanvas-embed");
+    if (!embed) return;
+    let done = false;
+    let complete = function (ok) {
+        if (done) return;
+        done = true;
+        finishSrcLoad(render, ok);
+    };
+    embed.addEventListener("error", function () { complete(false); });
+    let obs = new MutationObserver(function () {
+        if (embed.loaded || embed.hasAttribute("loaded")) {
+            obs.disconnect();
+            complete(true);
         }
-        setTimeout(function () { complete(true); }, 15000);
-    }).catch(function () {
-        finishSrcLoad(render, false);
     });
+    obs.observe(embed, { attributes: true });
+    setTimeout(function () { complete(true); }, 15000);
 }
 
 function showPart(row, mode) {
@@ -180,7 +177,46 @@ function updateRender(clickedElement) {
     showPart(clickedElement, startMode);
 }
 
+function initSplitter() {
+    let bulk = document.getElementById("bulk");
+    let splitter = document.getElementById("splitter");
+    let pane = document.getElementById("render");
+    if (!bulk || !splitter || !pane) return;
+
+    let dragging = false;
+    let minList = 200;
+    let minRender = 240;
+
+    function setRenderWidth(px) {
+        let rect = bulk.getBoundingClientRect();
+        let maxRender = rect.width - minList - splitter.offsetWidth;
+        px = Math.max(minRender, Math.min(maxRender, px));
+        pane.style.flex = "0 0 " + px + "px";
+        pane.style.width = px + "px";
+    }
+
+    splitter.addEventListener("pointerdown", function (e) {
+        e.preventDefault();
+        dragging = true;
+        splitter.setPointerCapture(e.pointerId);
+        document.body.classList.add("resizing");
+    });
+    splitter.addEventListener("pointermove", function (e) {
+        if (!dragging) return;
+        setRenderWidth(bulk.getBoundingClientRect().right - e.clientX);
+    });
+    function stopDrag() {
+        if (!dragging) return;
+        dragging = false;
+        document.body.classList.remove("resizing");
+        window.dispatchEvent(new Event("resize"));
+    }
+    splitter.addEventListener("pointerup", stopDrag);
+    splitter.addEventListener("pointercancel", stopDrag);
+}
+
 document.addEventListener("DOMContentLoaded", function () {
+    initSplitter();
     let srcBtn = document.getElementById("view-src");
     let imgBtn = document.getElementById("view-img");
     if (srcBtn) {
@@ -196,7 +232,3 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     }
 });
-
-onresize = (event) => {
-
-};
