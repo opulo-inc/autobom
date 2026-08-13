@@ -230,6 +230,12 @@ class Builder:
             else:
                 render["method_preference"] = "img"
                 render["img_path"] = method
+        else:
+            # misc / wcad / unknown: optional external preview URL via part["render"]
+            method = part.get("render")
+            if method and method not in ("src", "img"):
+                render["method_preference"] = "img"
+                render["img_path"] = method
         entry["render"] = render
         self.manifest["parts"].append(entry)
 

@@ -4,14 +4,14 @@
 
 # BUILD:
 #   docker build -t kicad -f Dockerfile-kicad . --platform=linux/amd64
-# even on an arm computer, we need to pick amd because kicad currently doens't have an arm build of 8.0 on the ppa
+# even on an arm computer, we need to pick amd because kicad currently doens't have an arm build of 10.0 on the ppa
 
 # RUN:
 #   docker run -v ./renderQueue:/renderQueue -it --rm kicad
 
 #FROM ubuntu:24.04
-#FROM ghcr.io/inti-cmnb/kicad8_auto
-FROM ghcr.io/inti-cmnb/kicad8_auto:1.8.1
+#FROM ghcr.io/inti-cmnb/kicad8_auto:1.8.1
+FROM ghcr.io/inti-cmnb/kicad10_auto:1.9.0
 
 # Noninteractive apt: base image has a modified ImageMagick policy.xml;
 # without this, upgrading imagemagick hangs on a conffile prompt in CI.
