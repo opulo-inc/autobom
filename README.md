@@ -83,6 +83,7 @@ Place **`autobom.json`** in the root of your hardware repository. AutoBOM reads 
 | `mcad` | **yes** | Defaults for mechanical CAD parts (`type: "mcad"` in the BOM). See below. |
 | `ecad` | **yes** | Defaults for electronics CAD parts (`type: "ecad"` in the BOM). See below. |
 | `site` | **yes** | Options for the generated BOM webpage. See below. |
+| `strict` | no | Default `false`. If `true`, the job exits non-zero when any non-`optional` part is missing or fails to export. If `false` (default), those are logged as warnings and the `autobom/` output is still produced. |
 
 ##### `mcad`
 

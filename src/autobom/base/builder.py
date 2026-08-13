@@ -161,7 +161,12 @@ class Builder:
             for failure in failures:
                 Logger.warn(failure)
             Logger.warn(f"Autobom finished with {len(failures)} failure(s)")
-            return False
+            # Default is not strict: a partial export still counts as success.
+            # Set "strict": true in autobom.json to fail the job on required-part errors.
+            if self.config.get("strict", False):
+                return False
+            Logger.info("Ignoring part failures because autobom.json strict is not true")
+            return True
 
         Logger.info("Autobom done!")
         return True

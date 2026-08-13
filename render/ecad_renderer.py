@@ -22,10 +22,20 @@ export_options = ["step", "stl", "all"]
 kicadIn = "/renderQueue/kicad/in/"
 kicadOut = "/renderQueue/kicad/out/"
 
+def _export_has_files(export_path):
+    if not os.path.isdir(export_path):
+        return False
+    for root, _dirs, files in os.walk(export_path):
+        if files:
+            return True
+    return False
+
+
 def renderKicad(path, name):
-    """Render a KiCAD project and return success status."""
+    """Render a KiCAD project. Returns None on success, or an error string on failure."""
     try:
-        export_path = kicadOut + name
+        os.makedirs(kicadOut, exist_ok=True)
+        export_path = os.path.join(kicadOut, name)
 
         # delete previous export dir if still there
         if os.path.exists(export_path) and os.path.isdir(export_path):
@@ -34,20 +44,33 @@ def renderKicad(path, name):
         os.makedirs(export_path)
 
         config_path = "/autobom/render/config.kibot.yaml"
+        justNeedsExt = os.path.join(path, name)
 
-        justNeedsExt = path + "/" + name
-        
-        result = subprocess.call([
-            "kibot", "-c", str(config_path),
-            "-e", justNeedsExt + ".kicad_sch",
-            "-b", justNeedsExt + ".kicad_pcb",
-            "-d", export_path
-        ])
-        
-        return result == 0
+        result = subprocess.run(
+            [
+                "kibot", "-c", str(config_path),
+                "-e", justNeedsExt + ".kicad_sch",
+                "-b", justNeedsExt + ".kicad_pcb",
+                "-d", export_path,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if result.stdout:
+            print(result.stdout)
+        if result.stderr:
+            print(result.stderr)
+
+        if result.returncode == 0 or _export_has_files(export_path):
+            if result.returncode != 0:
+                print(f"kibot exited {result.returncode} for {name} but produced output; treating as success")
+            return None
+
+        detail = (result.stderr or result.stdout or "").strip()
+        return f"kibot failed (exit {result.returncode}): {detail[:500] or 'no output'}"
     except Exception as e:
         print(f"Error rendering KiCAD project {name}: {traceback.format_exc()}")
-        return False
+        return str(e)
 
 
 def handle_request(client_sock, addr):
@@ -79,8 +102,8 @@ def handle_request(client_sock, addr):
             send_message(client_sock, error_msg)
             return
         
-        success = renderKicad(input_path, part_name)
-        if success:
+        err = renderKicad(input_path, part_name)
+        if err is None:
             # Clean up input directory
             shutil.rmtree(input_path)
             response = create_response(
@@ -91,11 +114,11 @@ def handle_request(client_sock, addr):
             # Still clean up input directory on failure
             try:
                 shutil.rmtree(input_path)
-            except:
+            except Exception:
                 pass
             response = create_response(
                 request_id, STATUS_FAILURE, part_name,
-                error="Rendering failed"
+                error=err
             )
         
         send_message(client_sock, response)

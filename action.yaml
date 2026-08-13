@@ -58,10 +58,12 @@ runs:
         uv run --project "${{ github.action_path }}" autobom
 
     - name: Upload artifact
+      if: always()
       uses: actions/upload-artifact@v4
       with:
         name: Autobom
         path: ./autobom
+        if-no-files-found: warn
 
     - name: Dump render engine logs
       if: failure()
