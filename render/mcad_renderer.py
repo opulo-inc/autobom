@@ -65,11 +65,20 @@ def _shape_has_volume(shape):
 
 def _find_export_object(doc, name):
     """Find a document object with a solid shape to export."""
-    # Prefer PartDesign Body (by type or common label)
     bodies = [
         obj for obj in doc.Objects
         if obj.isDerivedFrom("PartDesign::Body") or obj.Label == "Body"
     ]
+    # Filename stem wins: Body labeled or named exactly like the .FCStd (and only that).
+    named = [b for b in bodies if b.Label == name or b.Name == name]
+    if named:
+        body = named[0]
+        if hasattr(body, "Shape") and _shape_has_volume(body.Shape):
+            print(f"Exporting named body {body.Name}/{body.Label} (matches {name})")
+            return body
+        raise Exception(
+            f"Body named {name} found ({body.Name}/{body.Label}) but has no solid shape to export"
+        )
     body_info = []
     for body in bodies:
         vol = None
