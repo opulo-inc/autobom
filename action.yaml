@@ -36,6 +36,7 @@ runs:
         }
         wait_for_port 9001 freecad
         wait_for_port 9002 kicad
+        wait_for_port 9003 wireviz
 
     - name: Set up Python
       uses: actions/setup-python@v5

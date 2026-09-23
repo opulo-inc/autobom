@@ -17,6 +17,7 @@ from .logger import Logger
 from .site import Site
 from ..cad.mcad import MCAD, raw_source_url
 from ..cad.ecad import ECAD
+from ..cad.wcad import WCAD
 
 default = {
     "colors": {
@@ -32,6 +33,11 @@ mcad_filetype = [
 
 ecad_filetype = [
     ".kicad_pro"
+]
+
+wcad_filetype = [
+    ".yml",
+    ".yaml"
 ]
 
 class McadExportTypes(enum.IntEnum):
@@ -152,7 +158,18 @@ class Builder:
                         failures.append(f"Failed to export or render {part['name']}: {detail}")
 
             elif part["type"] == "wcad":
-                pass
+                wcad = WCAD(part, self.config, sha, self.repoPath, self.abPath)
+                if not self.findWcad(wcad):
+                    msg = "Was not able to find source file for " + part['name']
+                    Logger.warn(msg)
+                    failures.append(msg)
+                    missing_sources.append((part['name'], 'wcad'))
+                else:
+                    source_path = wcad.path
+                    if not wcad.out(self.manifest):
+                        detail = wcad.last_error or "unknown error"
+                        failures.append(f"Failed to export or render {part['name']}: {detail}")
+
             elif part["type"] == "misc":
                 pass
             else:
@@ -232,8 +249,11 @@ class Builder:
             else:
                 render["method_preference"] = "img"
                 render["img_path"] = method
+        elif ptype == "wcad":
+            render["method_preference"] = "img"
+            render["img_path"] = "export/" + part["name"] + ".png"
         else:
-            # misc / wcad / unknown: optional external preview URL via part["render"]
+            # misc / unknown: optional external preview URL via part["render"]
             method = part.get("render")
             if method and method not in ("src", "img"):
                 render["method_preference"] = "img"
@@ -246,13 +266,50 @@ class Builder:
             return os.path.join(self.repoPath, self.config["mcad"]["path"])
         return self.repoPath
 
+    def _wcad_search_root(self):
+        if "path" in self.config.get("wcad", {}):
+            return os.path.join(self.repoPath, self.config["wcad"]["path"])
+        return self.repoPath
+
+    def _wcad_name_stems(self, name):
+        stems = [name]
+        lower = name.lower()
+        for suffix in ("-harness", "-cable"):
+            if lower.endswith(suffix) and len(lower) > len(suffix):
+                stems.append(name[: -len(suffix)])
+        return stems
+
+    def _unused_wcad_files(self):
+        unused = []
+        bom_stems = set()
+        for part in self.bom["parts"]:
+            for stem in self._wcad_name_stems(part["name"]):
+                bom_stems.add(stem.lower())
+        search_path = self._wcad_search_root()
+        if not os.path.isdir(search_path):
+            return unused
+        for root, dirs, files in os.walk(search_path):
+            dirs[:] = [d for d in dirs if not self._skip_source_dir(d)]
+            if any(self._skip_source_dir(part) for part in root.split(os.sep)):
+                continue
+            for name in files:
+                base, ext = os.path.splitext(name)
+                if ext.lower() not in wcad_filetype:
+                    continue
+                lower_name = name.lower()
+                if lower_name.startswith("docker-compose") or lower_name in ("action.yml", "action.yaml"):
+                    continue
+                if base.lower() not in bom_stems:
+                    unused.append(os.path.relpath(os.path.join(root, name), self.repoPath))
+        return sorted(unused)
+
     def _ecad_search_root(self):
         if "path" in self.config.get("ecad", {}):
             return os.path.join(self.repoPath, self.config["ecad"]["path"])
         return self.repoPath
 
     def _skip_source_dir(self, dirname):
-        skip = {".git", "backups", "__pycache__", "renderQueue", "autobom", "index.3dshapes"}
+        skip = {".git", ".github", "backups", "__pycache__", "renderQueue", "autobom", "index.3dshapes"}
         return dirname in skip or dirname.endswith("-backups") or dirname.endswith(".3dshapes")
 
     def _unused_source_files(self, search_path, extensions):
@@ -275,6 +332,7 @@ class Builder:
     def _report_bom_coverage(self, missing_sources):
         unused_mcad = self._unused_source_files(self._mcad_search_root(), mcad_filetype)
         unused_ecad = self._unused_source_files(self._ecad_search_root(), ecad_filetype)
+        unused_wcad = self._unused_wcad_files()
 
         Logger.info("----- BOM coverage -----")
         if unused_mcad:
@@ -290,6 +348,13 @@ class Builder:
                 Logger.info(f"  {path}")
         else:
             Logger.info("ECAD files in the repo not listed in the BOM: none")
+
+        if unused_wcad:
+            Logger.info(f"WCAD files in the repo not listed in the BOM ({len(unused_wcad)}):")
+            for path in unused_wcad:
+                Logger.info(f"  {path}")
+        else:
+            Logger.info("WCAD files in the repo not listed in the BOM: none")
 
         if missing_sources:
             Logger.info(f"BOM parts with no source file ({len(missing_sources)}):")
@@ -338,6 +403,23 @@ class Builder:
                         Logger.info(f"Found a source file match for {ecad.part_info['name']} with {name}.")
                         return ecad.path
 
+        return False
+
+    def findWcad(self, wcad):
+        search_path = self._wcad_search_root()
+        stems = self._wcad_name_stems(wcad.part_info["name"])
+        for stem in stems:
+            for root, dirs, files in os.walk(search_path):
+                dirs[:] = [d for d in dirs if not self._skip_source_dir(d)]
+                for name in files:
+                    base, ext = os.path.splitext(name)
+                    if ext.lower() not in wcad_filetype:
+                        continue
+                    if base.lower() == stem.lower():
+                        full_path = os.path.join(root, name)
+                        Logger.info(f"Found a source file match for {wcad.part_info['name']} with {name}.")
+                        wcad.path = full_path
+                        return wcad.path
         return False
 
     def _source_links(self, source):

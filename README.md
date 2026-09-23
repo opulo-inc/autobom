@@ -17,7 +17,7 @@ There are only a handful of CAD packages that we can support, given that all thi
 - [x] FreeCAD
 - [ ] OpenSCAD
 - [x] KiCAD
-- [ ] Wireviz
+- [x] WireViz
 
 ## Usage
 
@@ -27,7 +27,7 @@ There are only a handful of CAD packages that we can support, given that all thi
 2. Copy [`examples/autobom.workflow.yaml`](examples/autobom.workflow.yaml) to `.github/workflows/autobom.yaml` (or paste the snippet below).
 3. Push a release or run the workflow via **workflow_dispatch**. AutoBOM uploads an `Autobom` artifact containing exports, renders, `index.html`, and `manifest.json`.
 
-Each Action run builds the FreeCAD and KiCAD Docker images from the Dockerfiles in this repo (slow the first time / when Dockerfiles change; simple and self-contained).
+Each Action run builds the FreeCAD, KiCAD, and WireViz Docker images from the Dockerfiles in this repo (slow the first time / when Dockerfiles change; simple and self-contained).
 
 ```yaml
 name: AutoBOM
@@ -67,6 +67,10 @@ Place **`autobom.json`** in the root of your hardware repository. AutoBOM reads 
     "render": "src",
     "path": "ecad"
   },
+  "wcad": {
+    "export": "svg",
+    "path": "wcad"
+  },
   "site": {
     "colors": {
       "primary": "daa520",
@@ -82,6 +86,7 @@ Place **`autobom.json`** in the root of your hardware repository. AutoBOM reads 
 | `bom_path` | **yes** | Path to the BOM JSON file, relative to the hardware repo root (e.g. `"bom.json"` or `"docs/bom.json"`). |
 | `mcad` | **yes** | Defaults for mechanical CAD parts (`type: "mcad"` in the BOM). See below. |
 | `ecad` | **yes** | Defaults for electronics CAD parts (`type: "ecad"` in the BOM). See below. |
+| `wcad` | no | Defaults for wire harnesses (`type: "wcad"` in the BOM). See below. |
 | `site` | **yes** | Options for the generated BOM webpage. See below. |
 | `strict` | no | Default `false`. If `true`, the job exits non-zero when **any** part is missing or fails to export. If `false`, those are logged as warnings and the `autobom/` output is still produced. `optional` on a part does not change this. |
 
@@ -105,6 +110,17 @@ Controls electronics parts (KiCAD projects with a `.kicad_pro` file).
 | `render` | **yes** | — | How the BOM page should prefer to display this part. See [Render modes](#render-modes) below. |
 | `path` | no | *(whole repo)* | Subdirectory (relative to repo root) to search for KiCAD projects. If omitted, AutoBOM walks the entire repository. Example: `"pnp/pcb"`. |
 
+##### `wcad`
+
+Controls wire harnesses (WireViz `.yml` / `.yaml`). There is no interactive source viewer: the BOM page always shows the PNG WireViz writes.
+
+Harness YAML is matched by filename stem. If the BOM name ends in `-harness` or `-cable` and no exact `{name}.yml` exists, AutoBOM also looks for the stem with that suffix stripped (`pump1-harness` → `pump1.yml`).
+
+| Key | Required | Default | Description |
+|-----|----------|---------|-------------|
+| `export` | no | `"svg"` | Which WireViz output to record in `manifest.json`. Allowed: `"svg"`, `"png"`. WireViz still writes both (plus `.html` / `.gv` when present) under `export/<name>/`; the site preview is always `export/<name>.png`. |
+| `path` | no | *(whole repo)* | Subdirectory to search for WireViz YAML. Strongly recommended so other `.yml` files are not treated as harnesses. Example: `"src/CHA"`. |
+
 ##### `site`
 
 | Key | Required | Default | Description |
@@ -117,7 +133,7 @@ Controls electronics parts (KiCAD projects with a `.kicad_pro` file).
 
 ##### Render modes
 
-Used by both `mcad.render` and `ecad.render` (and by per-part overrides in the BOM):
+Used by `mcad.render` and `ecad.render` (and by per-part overrides in the BOM). **WCAD ignores `render`:** WireViz has no interactive source viewer, so harnesses always use the exported PNG.
 
 | Value | Behavior |
 |-------|----------|
@@ -125,7 +141,7 @@ Used by both `mcad.render` and `ecad.render` (and by per-part overrides in the B
 | `"img"` | Show the local preview PNG from the artifact (`export/<name>.png` for mcad, `export/<name>/<name>-top.png` for ecad). |
 | *(any other string)* | Treated as a custom image URL/path and used as the part’s `img_path` (useful for hosting a pre-rendered preview elsewhere). |
 
-Any part in `bom.json` may set its own `"render"` or `"export"` field to override the matching `mcad` / `ecad` default for that part only.
+Any part in `bom.json` may set its own `"render"` or `"export"` field to override the matching `mcad` / `ecad` / `wcad` default for that part only.
 
 ---
 
@@ -171,16 +187,16 @@ The page title / `manifest.version` is **not** set in `bom.json`. It comes from 
 
 | Key | Required | Description |
 |-----|----------|-------------|
-| `name` | **yes** | Must match the FreeCAD/OpenSCAD filename stem (e.g. `my-bracket` → `my-bracket.FCStd`) or the KiCAD project name (directory containing `my-bracket.kicad_pro`). |
+| `name` | **yes** | Must match the FreeCAD/OpenSCAD filename stem (e.g. `my-bracket` → `my-bracket.FCStd`), the KiCAD project name (directory containing `my-bracket.kicad_pro`), or the WireViz YAML stem (`pump1.yml`, or `pump1-harness` matching `pump1.yml` as described under `wcad`). |
 | `quantity` | **yes** | Count shown in the BOM table. |
-| `type` | **yes** | `"mcad"` (FreeCAD / OpenSCAD), `"ecad"` (KiCAD). `"wcad"` and `"misc"` are recognized but not processed yet. |
+| `type` | **yes** | `"mcad"` (FreeCAD / OpenSCAD), `"ecad"` (KiCAD), `"wcad"` (WireViz), `"misc"` (no CAD export; optional `render` URL for a preview image). |
 | `optional` | no | Informational only (shown on the BOM page). Does **not** change whether AutoBOM treats the part as required. |
 | `source` | no | Link(s) shown in the BOM table. A string, or an array of strings (`["https://a", "https://b"]`) which renders as Link 1, Link 2, … |
 | `notes` | no | Free-text note shown in the BOM table. |
-| `render` | no | Overrides `mcad.render` / `ecad.render` for this part only. Same values as [Render modes](#render-modes). |
-| `export` | no | Overrides `mcad.export` / `ecad.export` for this part only. |
+| `render` | no | Overrides `mcad.render` / `ecad.render` for this part only. Same values as [Render modes](#render-modes). Ignored for `"wcad"`. |
+| `export` | no | Overrides `mcad.export` / `ecad.export` / `wcad.export` for this part only. |
 
-CAD sources are searched under `mcad.path` / `ecad.path` when set; otherwise the whole repo.
+CAD sources are searched under `mcad.path` / `ecad.path` / `wcad.path` when set; otherwise the whole repo.
 
 See also [opulo-inc/example-autobom-project](https://github.com/opulo-inc/example-autobom-project).
 
@@ -192,7 +208,7 @@ Requires Docker Desktop (or equivalent) running. From your hardware repo root:
 uv run --project /path/to/autobom/repo autobom
 ```
 
-Locally, `autobom` starts the FreeCAD/KiCAD containers if they aren’t already up, waits for ports 9001/9002, runs the build, then stops containers it started. On Apple Silicon it uses `docker-compose-local.yaml`; elsewhere `docker-compose.yaml`.
+Locally, `autobom` starts the FreeCAD/KiCAD/WireViz containers if they aren’t already up, waits for ports 9001/9002/9003, runs the build, then stops containers it started. On Apple Silicon it uses `docker-compose-local.yaml`; elsewhere `docker-compose.yaml`.
 
 - If engines are already running, they are reused and left up afterward.
 - To keep engines you started (faster re-runs): `AUTOBOM_KEEP_ENGINES=1 uv run --project /path/to/autobom/repo autobom`
@@ -212,6 +228,7 @@ To export STEP from every FreeCAD file in a tree:
 - [FreeCAD](https://github.com/FreeCAD/FreeCAD)
 - [KiCAD](https://gitlab.com/kicad/code/kicad)
 - [KiBot](https://github.com/INTI-CMNB/KiBot)
+- [WireViz](https://github.com/formatc1702/WireViz)
 - [OpenSCAD](https://github.com/openscad/openscad/)
 
 ## DEV
@@ -222,12 +239,13 @@ Here's a rough breakdown of what's in this repo
   - `Dockerfile-freecad-gha` defines the container for the freecad "render engine" when running in Github Actions (x86_64 FreeCAD AppImage).
   - `Dockerfile-freecad-local` is for Apple Silicon local testing.
   - `Dockerfile-kicad` runs KiBot against a whole KiCAD project directory.
+  - `Dockerfile-wireviz` runs WireViz (Graphviz) against a harness YAML directory.
   - `./docker-compose-local.yaml` builds images locally for Mac ARM.
-  - `./docker-compose.yaml` builds images for the Github Action (x86 FreeCAD + KiCAD).
+  - `./docker-compose.yaml` builds images for the Github Action (x86 FreeCAD + KiCAD + WireViz).
 - `./renderQueue` is a folder that the render engine docker containers use to exchange source/export files with the host.
 - `./src` is where all the Autobom python source exists. This is what generates the website, parses the bom and config files, finds the source files, and makes decisions about what files get rendered where.
 - `./action.yaml` is the composite Github Action entrypoint.
-- Builder ↔ renderers talk over TCP (JSON length-prefixed messages) on ports 9001 (MCAD) and 9002 (ECAD).
+- Builder ↔ renderers talk over TCP (JSON length-prefixed messages) on ports 9001 (MCAD), 9002 (ECAD), and 9003 (WCAD).
 
 TODO:
 - openscad has not been fully tested in CI

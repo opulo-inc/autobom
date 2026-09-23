@@ -18,3 +18,13 @@ services:
       - ${GITHUB_ACTION_PATH}/renderQueue:/renderQueue
     ports:
       - "9002:9002"
+
+  wireviz:
+    build:
+      context: ${GITHUB_ACTION_PATH}
+      dockerfile: render/Dockerfile-wireviz
+    container_name: wireviz
+    volumes:
+      - ${GITHUB_ACTION_PATH}/renderQueue:/renderQueue
+    ports:
+      - "9003:9003"

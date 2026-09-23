@@ -65,37 +65,43 @@ def _shape_has_volume(shape):
 
 def _find_export_object(doc, name):
     """Find a document object with a solid shape to export."""
-    bodies = [
+    # Prefer PartDesign Bodies and Part::Compounds (e.g. control-box.FCStd top-level).
+    candidates = [
         obj for obj in doc.Objects
-        if obj.isDerivedFrom("PartDesign::Body") or obj.Label == "Body"
-    ]
-    # Filename stem wins: Body labeled or named exactly like the .FCStd (and only that).
-    named = [b for b in bodies if b.Label == name or b.Name == name]
-    if named:
-        body = named[0]
-        if hasattr(body, "Shape") and _shape_has_volume(body.Shape):
-            print(f"Exporting named body {body.Name}/{body.Label} (matches {name})")
-            return body
-        raise Exception(
-            f"Body named {name} found ({body.Name}/{body.Label}) but has no solid shape to export"
+        if (
+            obj.isDerivedFrom("PartDesign::Body")
+            or obj.isDerivedFrom("Part::Compound")
+            or obj.Label == "Body"
         )
-    body_info = []
-    for body in bodies:
+    ]
+    # Filename stem wins: object labeled or named exactly like the .FCStd.
+    named = [o for o in candidates if o.Label == name or o.Name == name]
+    if named:
+        obj = named[0]
+        if hasattr(obj, "Shape") and _shape_has_volume(obj.Shape):
+            print(f"Exporting named object {obj.Name}/{obj.Label} ({obj.TypeId}) (matches {name})")
+            return obj
+        raise Exception(
+            f"Object named {name} found ({obj.Name}/{obj.Label}, {obj.TypeId}) "
+            f"but has no solid shape to export"
+        )
+    candidate_info = []
+    for obj in candidates:
         vol = None
         has = False
         try:
-            if hasattr(body, "Shape"):
-                has = _shape_has_volume(body.Shape)
+            if hasattr(obj, "Shape"):
+                has = _shape_has_volume(obj.Shape)
                 try:
-                    vol = float(body.Shape.Volume)
+                    vol = float(obj.Shape.Volume)
                 except Exception:
                     vol = None
         except Exception as e:
-            body_info.append(f"{body.Name}/{body.Label}: shape-error({e})")
+            candidate_info.append(f"{obj.Name}/{obj.Label}: shape-error({e})")
             continue
-        body_info.append(f"{body.Name}/{body.Label}: volume={vol}")
+        candidate_info.append(f"{obj.Name}/{obj.Label}: volume={vol}")
         if has:
-            return body
+            return obj
 
     # Part containers (assemblies / multi-body parts)
     parts = [obj for obj in doc.Objects if obj.isDerivedFrom("Part::Feature") and hasattr(obj, "Shape")]
@@ -112,7 +118,7 @@ def _find_export_object(doc, name):
     labels = [f"{o.Name}:{o.TypeId}/{o.Label}" for o in doc.Objects[:40]]
     raise Exception(
         f"No exportable solid found in model {name}. "
-        f"objects={len(doc.Objects)}; bodies=[{'; '.join(body_info) or 'none'}]; "
+        f"objects={len(doc.Objects)}; candidates=[{'; '.join(candidate_info) or 'none'}]; "
         f"sample=[{'; '.join(labels)}]"
     )
 

@@ -20,10 +20,13 @@ MCAD_SOCKET_SERVER_HOST = "0.0.0.0"
 MCAD_SOCKET_PORT = 9001
 ECAD_SOCKET_SERVER_HOST = "0.0.0.0"
 ECAD_SOCKET_PORT = 9002
+WCAD_SOCKET_SERVER_HOST = "0.0.0.0"
+WCAD_SOCKET_PORT = 9003
 
 # Client connect address (on host) - use 127.0.0.1 to connect via Docker port forwarding
 MCAD_SOCKET_CLIENT_HOST = "127.0.0.1"
 ECAD_SOCKET_CLIENT_HOST = "127.0.0.1"
+WCAD_SOCKET_CLIENT_HOST = "127.0.0.1"
 
 
 def get_mcad_socket_address(ab_path: Optional[str] = None, server: bool = False) -> tuple:
@@ -48,6 +51,13 @@ def get_ecad_socket_address(ab_path: Optional[str] = None, server: bool = False)
     if server:
         return (ECAD_SOCKET_SERVER_HOST, ECAD_SOCKET_PORT)
     return (ECAD_SOCKET_CLIENT_HOST, ECAD_SOCKET_PORT)
+
+
+def get_wcad_socket_address(ab_path: Optional[str] = None, server: bool = False) -> tuple:
+    """Get the WCAD (WireViz) socket address (host, port)."""
+    if server:
+        return (WCAD_SOCKET_SERVER_HOST, WCAD_SOCKET_PORT)
+    return (WCAD_SOCKET_CLIENT_HOST, WCAD_SOCKET_PORT)
 
 # Message types
 MSG_TYPE_REQUEST = "request"

@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from typing import Iterator, Optional
 
 from .logger import Logger
-from .socket_protocol import MCAD_SOCKET_PORT, ECAD_SOCKET_PORT
+from .socket_protocol import MCAD_SOCKET_PORT, ECAD_SOCKET_PORT, WCAD_SOCKET_PORT
 
 # Set to "1" to leave containers running after a local run (faster iteration).
 KEEP_ENGINES_ENV = "AUTOBOM_KEEP_ENGINES"
@@ -51,7 +51,11 @@ def _port_open(port: int, host: str = "127.0.0.1", timeout: float = 1.0) -> bool
 
 
 def engines_ready() -> bool:
-    return _port_open(MCAD_SOCKET_PORT) and _port_open(ECAD_SOCKET_PORT)
+    return (
+        _port_open(MCAD_SOCKET_PORT)
+        and _port_open(ECAD_SOCKET_PORT)
+        and _port_open(WCAD_SOCKET_PORT)
+    )
 
 
 def wait_for_engines(timeout_s: int = 360) -> None:
@@ -59,13 +63,14 @@ def wait_for_engines(timeout_s: int = 360) -> None:
     while time.time() < deadline:
         if engines_ready():
             Logger.info(
-                f"Render engines ready on ports {MCAD_SOCKET_PORT} and {ECAD_SOCKET_PORT}"
+                f"Render engines ready on ports {MCAD_SOCKET_PORT}, "
+                f"{ECAD_SOCKET_PORT}, and {WCAD_SOCKET_PORT}"
             )
             return
         time.sleep(2)
     raise TimeoutError(
         f"Timed out waiting for render engines on ports "
-        f"{MCAD_SOCKET_PORT} and {ECAD_SOCKET_PORT}. "
+        f"{MCAD_SOCKET_PORT}, {ECAD_SOCKET_PORT}, and {WCAD_SOCKET_PORT}. "
         "Check: docker compose -f <compose> logs"
     )
 

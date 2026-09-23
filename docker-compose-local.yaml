@@ -31,3 +31,13 @@ services:
     ports:
       - "9002:9002"  # ECAD render server TCP port
 
+  wireviz:
+    build:
+      context: .
+      dockerfile: render/Dockerfile-wireviz
+    container_name: wireviz
+    volumes:
+      - ./renderQueue:/renderQueue
+    ports:
+      - "9003:9003"  # WCAD render server TCP port
+
