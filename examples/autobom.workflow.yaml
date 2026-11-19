@@ -16,14 +16,17 @@ on:
 jobs:
   autobom:
     runs-on: ubuntu-latest
+    # Needed so the action can attach Autobom-<tag>.zip to the GitHub Release.
+    permissions:
+      contents: write
     steps:
       - name: Checkout hardware repo
         uses: actions/checkout@v4
 
       - name: Run AutoBOM
         uses: opulo-inc/autobom@v0.2.0
-        # Or while iterating:
+        # Or on bleeding edge:
         # uses: opulo-inc/autobom@main
 
-      # Artifact "Autobom" is uploaded by the action (autobom/ folder:
-      # exports, renders, index.html, manifest.json).
+      # On every run: workflow artifact "Autobom".
+      # On release: also attaches Autobom-<tag>.zip to the GitHub Release.

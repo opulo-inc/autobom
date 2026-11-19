@@ -66,6 +66,23 @@ runs:
         path: ./autobom
         if-no-files-found: warn
 
+    - name: Attach Autobom to release
+      if: github.event_name == 'release' && success()
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        if [[ ! -d autobom ]]; then
+          echo "No autobom/ directory to attach"
+          exit 0
+        fi
+        tag="${{ github.event.release.tag_name }}"
+        zip_name="Autobom-${tag}.zip"
+        zip -r "$zip_name" autobom
+        gh release upload "$tag" "$zip_name" --clobber
+        echo "Attached $zip_name to release $tag"
+
     - name: Dump render engine logs
       if: failure()
       shell: bash

@@ -25,7 +25,7 @@ There are only a handful of CAD packages that we can support, given that all thi
 
 1. In your hardware repo root, add `autobom.json` and a BOM file (see [Config](#config) below).
 2. Copy [`examples/autobom.workflow.yaml`](examples/autobom.workflow.yaml) to `.github/workflows/autobom.yaml` (or paste the snippet below).
-3. Push a release or run the workflow via **workflow_dispatch**. AutoBOM uploads an `Autobom` artifact containing exports, renders, `index.html`, and `manifest.json`.
+3. Push a release or run the workflow via **workflow_dispatch**. AutoBOM uploads an `Autobom` workflow artifact containing exports, renders, `index.html`, and `manifest.json`. On a **release** event it also attaches `Autobom-<tag>.zip` to that GitHub Release (the consumer workflow needs `permissions: contents: write`).
 
 Each Action run builds the FreeCAD, KiCAD, and WireViz Docker images from the Dockerfiles in this repo (slow the first time / when Dockerfiles change; simple and self-contained).
 
@@ -40,6 +40,8 @@ on:
 jobs:
   autobom:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - uses: opulo-inc/autobom@v0.2.0
