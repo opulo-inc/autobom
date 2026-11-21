@@ -1,3 +1,8 @@
+:root {
+    --primary: #daa520;
+    --secondary: #af8000;
+}
+
 * {
     margin:0px;
     padding:0px;
@@ -61,7 +66,7 @@ h1 {
     color: #f0c060;
 }
 tr.titlerow th {
-    background-color: goldenrod;
+    background-color: var(--primary);
     position: sticky;
     top: 0;
     color:black;
@@ -69,7 +74,7 @@ tr.titlerow th {
 }
 
 tr.active {
-    background-color: #af8000;
+    background-color: var(--secondary);
 }
 
 th, td {
@@ -78,7 +83,7 @@ th, td {
     border-bottom: 1px solid #fff
 }
 a {
-    color:goldenrod;
+    color:var(--primary);
 }
 
 img {
@@ -138,7 +143,7 @@ tr:hover {
 
 #splitter:hover,
 body.resizing #splitter {
-    background: goldenrod;
+    background: var(--primary);
 }
 
 body.resizing {
@@ -183,7 +188,7 @@ body.resizing {
 }
 
 .view-toggle.active {
-    background: #af8000;
+    background: var(--secondary);
     color: #fff;
 }
 

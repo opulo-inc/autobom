@@ -127,10 +127,10 @@ Harness YAML is matched by filename stem. If the BOM name ends in `-harness` or 
 | Key | Required | Default | Description |
 |-----|----------|---------|-------------|
 | `colors` | no | see below | Theme colors for the generated BOM page. Hex values **without** a leading `#`. |
-| `colors.primary` | no | `"daa520"` | Primary accent color. |
-| `colors.secondary` | no | `"af8000"` | Secondary accent color. |
+| `colors.primary` | no | `"daa520"` | Primary accent color: table header, links, splitter hover. |
+| `colors.secondary` | no | `"af8000"` | Secondary accent color: selected row, active Source/Image button. |
 
-`site` itself must be present (even as `{}`). Color keys are accepted and merged with defaults; full CSS theming from these values is still evolving.
+`site` itself must be present (even as `{}`). Colors you omit use the defaults; an invalid hex value logs a warning and falls back to the default.
 
 ##### Render modes
 

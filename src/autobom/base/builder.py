@@ -11,7 +11,7 @@ The Builder class is the main thing responsible for parsing the bom.json file an
 - getting the website built
 """
 
-import copy, enum, time, json, os, shutil, subprocess, autobom, fnmatch
+import copy, enum, time, json, os, re, shutil, subprocess, autobom, fnmatch
 
 from .logger import Logger
 from .site import Site
@@ -448,9 +448,19 @@ class Builder:
             return ""
         return '<span class="tag tag-optional">optional</span>'
 
+    def _site_colors(self):
+        colors = {**default["colors"], **((self.config.get("site") or {}).get("colors") or {})}
+        for key in ("primary", "secondary"):
+            value = str(colors.get(key, "")).lstrip("#")
+            if not re.fullmatch(r"[0-9a-fA-F]{3}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8}", value):
+                Logger.warn(f"site.colors.{key} {colors.get(key)!r} is not a hex color; using {default['colors'][key]}")
+                value = default["colors"][key]
+            colors[key] = value
+        return colors
+
     def renderSite(self):
 
-        self.settings = {**default, **self.config}
+        colors = self._site_colors()
 
         # copying over web assets
         shutil.copytree(self.abPath + "/src/autobom/web", os.path.join(self.outPath, "web"))
@@ -458,7 +468,11 @@ class Builder:
         # make html file that will become our BOM
         f = open(os.path.join(self.outPath, "index.html"), "w")
 
-        f.write(header)
+        theme = (
+            "    <style>:root { --primary: #" + colors["primary"]
+            + "; --secondary: #" + colors["secondary"] + "; }</style>\n"
+        )
+        f.write(header.replace("</head>", theme + "</head>"))
 
         githubLink = self.manifest["source_url"]
         gitCommit = self.manifest['shortsha']
