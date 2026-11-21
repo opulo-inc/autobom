@@ -29,4 +29,5 @@ jobs:
         # uses: opulo-inc/autobom@main
 
       # On every run: workflow artifact "Autobom".
-      # On release: also attaches Autobom-<tag>.zip to the GitHub Release.
+      # On release: also attaches Autobom-<tag>.zip to the GitHub Release
+      # (one Autobom-<id>-<tag>.zip per BOM when autobom.json uses "boms").

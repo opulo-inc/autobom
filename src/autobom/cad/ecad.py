@@ -17,7 +17,7 @@ class ECAD():
 
     RENDER_TIMEOUT_S = 1800
 
-    def __init__(self, part_info, settings, sha, repoPath, abPath):
+    def __init__(self, part_info, settings, sha, repoPath, abPath, outPath):
 
         self.part_info = part_info
         self.settings = settings
@@ -26,6 +26,7 @@ class ECAD():
         self.name = self.part_info["name"]
         self.repoPath = repoPath
         self.abPath = abPath
+        self.outPath = outPath
         self.last_error = None
 
     def del_rw(self, action, name, exc):
@@ -144,7 +145,7 @@ class ECAD():
         try:
             exportDir = self.abPath + "/renderQueue/kicad/out/" + self.name
             if os.path.exists(exportDir):
-                shutil.copytree(exportDir, self.repoPath + "/autobom/export/" + self.name)
+                shutil.copytree(exportDir, os.path.join(self.outPath, "export", self.name))
                 # Clean up output directory
                 try:
                     shutil.rmtree(exportDir, onerror=self.del_rw)

@@ -16,7 +16,7 @@ class WCAD():
 
     RENDER_TIMEOUT_S = 1800
 
-    def __init__(self, part_info, settings, sha, repoPath, abPath):
+    def __init__(self, part_info, settings, sha, repoPath, abPath, outPath):
         self.part_info = part_info
         self.settings = settings
         self.path = None  # path to the .yml / .yaml
@@ -24,6 +24,7 @@ class WCAD():
         self.name = self.part_info["name"]
         self.repoPath = repoPath
         self.abPath = abPath
+        self.outPath = outPath
         self.last_error = None
 
     def del_rw(self, action, name, exc):
@@ -124,14 +125,14 @@ class WCAD():
 
         try:
             export_dir = os.path.join(self.abPath, "renderQueue", "wireviz", "out", self.name)
-            dest_dir = os.path.join(self.repoPath, "autobom", "export", self.name)
+            dest_dir = os.path.join(self.outPath, "export", self.name)
             if os.path.isdir(export_dir):
                 if os.path.exists(dest_dir):
                     shutil.rmtree(dest_dir)
                 shutil.copytree(export_dir, dest_dir)
                 png_src = os.path.join(dest_dir, self.name + ".png")
                 if os.path.isfile(png_src):
-                    shutil.copy2(png_src, os.path.join(self.repoPath, "autobom", "export", self.name + ".png"))
+                    shutil.copy2(png_src, os.path.join(self.outPath, "export", self.name + ".png"))
                 try:
                     shutil.rmtree(export_dir, onerror=self.del_rw)
                 except Exception:

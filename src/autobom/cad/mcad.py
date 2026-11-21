@@ -29,7 +29,7 @@ class MCAD():
     # Large FCStd files (e.g. x-gantry-back ~60MiB) can take many minutes.
     RENDER_TIMEOUT_S = 1800
 
-    def __init__(self, part_info, settings, sha, repoPath, abPath):
+    def __init__(self, part_info, settings, sha, repoPath, abPath, outPath):
 
         self.part_info = part_info
         self.settings = settings
@@ -38,6 +38,7 @@ class MCAD():
         self.sha = sha
         self.repoPath = repoPath
         self.abPath = abPath
+        self.outPath = outPath
         self.last_error = None
             
 
@@ -174,7 +175,7 @@ class MCAD():
             for file in exportFiles:
                 source_file = os.path.join(self.abPath + "/renderQueue/freecad/out", file)
                 if os.path.isfile(source_file):
-                    shutil.copy(source_file, self.repoPath + "/autobom/export")
+                    shutil.copy(source_file, os.path.join(self.outPath, "export"))
                     os.remove(source_file)
         except Exception as e:
             self.last_error = f"Error copying FreeCAD export files: {e}"
@@ -306,7 +307,7 @@ class MCAD():
             for file in exportFiles:
                 source_file = os.path.join(self.abPath + "/renderQueue/openscad/out", file)
                 if os.path.isfile(source_file):
-                    shutil.copy(source_file, self.repoPath + "/autobom/export")
+                    shutil.copy(source_file, os.path.join(self.outPath, "export"))
                     os.remove(source_file)
         except Exception as e:
             self.last_error = f"Error copying OpenSCAD export files: {e}"

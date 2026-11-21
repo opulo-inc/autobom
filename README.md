@@ -25,9 +25,9 @@ There are only a handful of CAD packages that we can support, given that all thi
 
 1. In your hardware repo root, add `autobom.json` and a BOM file (see [Config](#config) below).
 2. Copy [`examples/autobom.workflow.yaml`](examples/autobom.workflow.yaml) to `.github/workflows/autobom.yaml` (or paste the snippet below).
-3. Push a release or run the workflow via **workflow_dispatch**. AutoBOM uploads an `Autobom` workflow artifact containing exports, renders, `index.html`, and `manifest.json`. On a **release** event it also attaches `Autobom-<tag>.zip` to that GitHub Release (the consumer workflow needs `permissions: contents: write`).
+3. Push a release or run the workflow via **workflow_dispatch**. AutoBOM uploads an `Autobom` workflow artifact containing exports, renders, `index.html`, and `manifest.json`. On a **release** event it also attaches `Autobom-<tag>.zip` to that GitHub Release (one `Autobom-<id>-<tag>.zip` per BOM when using [multiple BOMs](#multiple-boms)). The consumer workflow needs `permissions: contents: write`.
 
-Each Action run builds the FreeCAD, KiCAD, and WireViz Docker images from the Dockerfiles in this repo (slow the first time / when Dockerfiles change; simple and self-contained).
+Each Action run builds the FreeCAD, KiCAD, and WireViz Docker images from the Dockerfiles in this repo.
 
 ```yaml
 name: AutoBOM
@@ -46,8 +46,6 @@ jobs:
       - uses: actions/checkout@v4
       - uses: opulo-inc/autobom@v0.2.0
 ```
-
-Pin a release tag (`@v0.2.0`) rather than `@main` for reproducible builds.
 
 ### Config
 
@@ -85,7 +83,8 @@ Place **`autobom.json`** in the root of your hardware repository. AutoBOM reads 
 | Key | Required | Description |
 |-----|----------|-------------|
 | `source_url` | **yes** | Base URL of the hardware repo (no trailing slash). Used in the generated BOM page header and to build GitHub `blob/<sha>/…` links when `render` is `"src"`. |
-| `bom_path` | **yes** | Path to the BOM JSON file, relative to the hardware repo root (e.g. `"bom.json"` or `"docs/bom.json"`). |
+| `bom_path` | **yes**, unless `boms` is used | Path to the BOM JSON file, relative to the hardware repo root (e.g. `"bom.json"` or `"docs/bom.json"`). |
+| `boms` | no | Build several BOMs in one run. Replaces `bom_path`. See [Multiple BOMs](#multiple-boms). |
 | `mcad` | **yes** | Defaults for mechanical CAD parts (`type: "mcad"` in the BOM). See below. |
 | `ecad` | **yes** | Defaults for electronics CAD parts (`type: "ecad"` in the BOM). See below. |
 | `wcad` | no | Defaults for wire harnesses (`type: "wcad"` in the BOM). See below. |
@@ -202,6 +201,40 @@ CAD sources are searched under `mcad.path` / `ecad.path` / `wcad.path` when set;
 
 See also [opulo-inc/example-autobom-project](https://github.com/opulo-inc/example-autobom-project).
 
+---
+
+#### Multiple BOMs
+
+To build several BOMs in one run (e.g. one per product variant), replace `bom_path` with a `boms` array. Top-level keys are defaults, each entry can override them.
+
+```json
+{
+  "source_url": "https://github.com/org/your-hardware-repo",
+  "strict": false,
+  "mcad": { "export": "step", "render": "src", "path": "src" },
+  "ecad": { "export": "gerber", "render": "src", "path": "src/PCB" },
+  "site": { "colors": { "primary": "daa520", "secondary": "af8000" } },
+  "boms": [
+    { "id": "feeder-8mm",  "bom_path": "bom8.json" },
+    { "id": "feeder-12mm", "bom_path": "bom12.json", "mcad": { "render": "img" } }
+  ]
+}
+```
+
+| Key | Required | Description |
+|-----|----------|-------------|
+| `id` | **yes** | Unique slug (letters, digits, `.`, `_`, `-`). Names the output folder and release zip. |
+| `bom_path` | **yes** | BOM file for this entry, relative to the repo root. |
+| *(any top-level key)* | no | Overrides the default for this BOM only. |
+
+Merge rules:
+
+- `mcad`, `ecad`, `wcad`, and `site` merge one level deep: keys you set replace the default, keys you omit are inherited. `site.colors` merges too, so you can override a single color.
+- Other keys (`strict`, `source_url`, …) are replaced outright.
+- Using both top-level `bom_path` and `boms` is an error.
+
+Each BOM is built fully separately into `autobom/<id>/` (its own `export/`, `manifest.json`, `index.html`, `web/`). Parts listed in more than one BOM are exported once per BOM. `strict` is evaluated per BOM; the run exits non-zero if any BOM fails. On a release, each BOM is attached as `Autobom-<id>-<tag>.zip`.
+
 ### Running local
 
 Requires Docker Desktop (or equivalent) running. From your hardware repo root:
@@ -215,9 +248,9 @@ Locally, `autobom` starts the FreeCAD/KiCAD/WireViz containers if they aren’t 
 - If engines are already running, they are reused and left up afterward.
 - To keep engines you started (faster re-runs): `AUTOBOM_KEEP_ENGINES=1 uv run --project /path/to/autobom/repo autobom`
 
-Under GitHub Actions, `action.yaml` owns container start/stop; the CLI does not manage Docker there.
+Under GitHub Actions, `action.yaml` owns container start/stop. The CLI does not manage Docker there.
 
-You'll get an `autobom/` folder in the hardware repo root with exports and `index.html`.
+You'll get an `autobom/` folder in the hardware repo root with exports and `index.html` (or one `autobom/<id>/` folder per BOM when using `boms`).
 
 To export STEP from every FreeCAD file in a tree:
 

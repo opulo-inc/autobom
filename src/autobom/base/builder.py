@@ -61,7 +61,7 @@ class EcadRenderTypes(enum.IntEnum):
     
 
 class Builder:
-    def __init__(self):
+    def __init__(self, config, out_dir, bom_id=None):
         super().__init__()
 
         # Getting github environment variables
@@ -81,27 +81,26 @@ class Builder:
         # change to repo dir just for the sake of sanity
         os.chdir(self.repoPath)
 
-        # Load autobom config
-        c = open(self.repoPath + '/autobom.json')
-        config = json.load(c)
-
         # Load bom.json file
-        b = open(self.repoPath + "/" + config["bom_path"])
-        bom = json.load(b)
+        with open(os.path.join(self.repoPath, config["bom_path"])) as b:
+            bom = json.load(b)
 
         self.config = config
         self.bom = bom
+        self.bom_id = bom_id
+        self.outPath = os.path.join(self.repoPath, out_dir)
         self.manifest = {}
+        self.failures = []
         self.site = Site(self.config["site"])
-        
-    def run(self):
-        Logger.info("Autobom starting")
-        # make autobom directory to start housing our goodies
-        if os.path.exists(self.repoPath + "/autobom"):
-            # wipe autobom
-            shutil.rmtree(self.repoPath + "/autobom")
 
-        os.makedirs(self.repoPath + "/autobom/export")
+    def run(self):
+        label = f" [{self.bom_id}]" if self.bom_id else ""
+        Logger.info(f"Autobom starting{label}")
+        # make the output directory to start housing our goodies
+        if os.path.exists(self.outPath):
+            shutil.rmtree(self.outPath)
+
+        os.makedirs(os.path.join(self.outPath, "export"))
 
         Logger.info(f"Autobom Path: {self.abPath}")
         Logger.info(f"Repository Path: {self.repoPath}")
@@ -132,7 +131,7 @@ class Builder:
 
             if part["type"] == "mcad":
                 
-                mcad = MCAD(part, self.config, sha, self.repoPath, self.abPath)
+                mcad = MCAD(part, self.config, sha, self.repoPath, self.abPath, self.outPath)
                 if not self.findMcad(mcad):
                     msg = "Was not able to find source file for " + part['name']
                     Logger.warn(msg)
@@ -145,7 +144,7 @@ class Builder:
                         failures.append(f"Failed to export or render {part['name']}: {detail}")
 
             elif part["type"] == "ecad":
-                ecad = ECAD(part, self.config, sha, self.repoPath, self.abPath)
+                ecad = ECAD(part, self.config, sha, self.repoPath, self.abPath, self.outPath)
                 if not self.findEcad(ecad):
                     msg = "Was not able to find source file for " + part['name']
                     Logger.warn(msg)
@@ -158,7 +157,7 @@ class Builder:
                         failures.append(f"Failed to export or render {part['name']}: {detail}")
 
             elif part["type"] == "wcad":
-                wcad = WCAD(part, self.config, sha, self.repoPath, self.abPath)
+                wcad = WCAD(part, self.config, sha, self.repoPath, self.abPath, self.outPath)
                 if not self.findWcad(wcad):
                     msg = "Was not able to find source file for " + part['name']
                     Logger.warn(msg)
@@ -179,13 +178,14 @@ class Builder:
             self._ensure_part_listed(part, sha, source_path)
 
         # save manifest to file
-        with open(self.repoPath + "/autobom/manifest.json", "w") as outfile: 
+        with open(os.path.join(self.outPath, "manifest.json"), "w") as outfile:
             json.dump(self.manifest, outfile)
 
         self.renderSite()
 
         self._report_bom_coverage(missing_sources)
 
+        self.failures = failures
         if failures:
             for failure in failures:
                 Logger.warn(failure)
@@ -334,7 +334,8 @@ class Builder:
         unused_ecad = self._unused_source_files(self._ecad_search_root(), ecad_filetype)
         unused_wcad = self._unused_wcad_files()
 
-        Logger.info("----- BOM coverage -----")
+        label = f" [{self.bom_id}]" if self.bom_id else ""
+        Logger.info(f"----- BOM coverage{label} -----")
         if unused_mcad:
             Logger.info(f"MCAD files in the repo not listed in the BOM ({len(unused_mcad)}):")
             for path in unused_mcad:
@@ -452,10 +453,10 @@ class Builder:
         self.settings = {**default, **self.config}
 
         # copying over web assets
-        shutil.copytree(self.abPath + "/src/autobom/web", "autobom/web")
+        shutil.copytree(self.abPath + "/src/autobom/web", os.path.join(self.outPath, "web"))
 
         # make html file that will become our BOM
-        f = open(self.repoPath + "/autobom/index.html", "w")
+        f = open(os.path.join(self.outPath, "index.html"), "w")
 
         f.write(header)
 

@@ -78,10 +78,22 @@ runs:
           exit 0
         fi
         tag="${{ github.event.release.tag_name }}"
-        zip_name="Autobom-${tag}.zip"
-        zip -r "$zip_name" autobom
-        gh release upload "$tag" "$zip_name" --clobber
-        echo "Attached $zip_name to release $tag"
+        if [[ -f autobom/manifest.json ]]; then
+          zip_name="Autobom-${tag}.zip"
+          zip -r "$zip_name" autobom
+          gh release upload "$tag" "$zip_name" --clobber
+          echo "Attached $zip_name to release $tag"
+        else
+          shopt -s nullglob
+          for manifest in autobom/*/manifest.json; do
+            bom_dir="$(dirname "$manifest")"
+            bom_id="$(basename "$bom_dir")"
+            zip_name="Autobom-${bom_id}-${tag}.zip"
+            (cd autobom && zip -r "../$zip_name" "$bom_id")
+            gh release upload "$tag" "$zip_name" --clobber
+            echo "Attached $zip_name to release $tag"
+          done
+        fi
 
     - name: Dump render engine logs
       if: failure()
