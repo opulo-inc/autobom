@@ -13,6 +13,7 @@ runs:
         GITHUB_ACTION_PATH: ${{ github.action_path }}
       run: |
         set -euo pipefail
+        mkdir -p "${{ github.action_path }}/renderQueue"/{freecad,openscad,kicad,wireviz}/{in,out}
         compose="${{ github.action_path }}/docker-compose.yaml"
         docker compose -f "$compose" up -d --build
 
@@ -58,12 +59,43 @@ runs:
         set -euo pipefail
         uv run --project "${{ github.action_path }}" autobom
 
+    - name: Prepare artifact
+      id: artifact
+      if: always()
+      shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        RELEASE_TAG: ${{ github.event.release.tag_name }}
+        REPO_FULL: ${{ github.repository }}
+        SHA: ${{ github.sha }}
+      run: |
+        set -euo pipefail
+        repo="${REPO_FULL#*/}"
+        if [[ "$EVENT_NAME" == "release" && -n "$RELEASE_TAG" ]]; then
+          ref="$RELEASE_TAG"
+        else
+          ref="${SHA:0:7}"
+        fi
+        safe_repo="$(printf '%s' "$repo" | tr '/\\:*?"<>|' '-')"
+        safe_ref="$(printf '%s' "$ref" | tr '/\\:*?"<>|' '-')"
+        name="autobom-${safe_repo}-${safe_ref}"
+        stage="${RUNNER_TEMP}/autobom-artifact"
+        rm -rf "$stage"
+        mkdir -p "$stage"
+        if [[ -d autobom ]]; then
+          cp -a autobom "$stage/$name"
+        fi
+        echo "name=$name" >> "$GITHUB_OUTPUT"
+        echo "stage=$stage" >> "$GITHUB_OUTPUT"
+        echo "repo=$safe_repo" >> "$GITHUB_OUTPUT"
+        echo "ref=$safe_ref" >> "$GITHUB_OUTPUT"
+
     - name: Upload artifact
       if: always()
       uses: actions/upload-artifact@v4
       with:
-        name: Autobom
-        path: ./autobom
+        name: ${{ steps.artifact.outputs.name }}
+        path: ${{ steps.artifact.outputs.stage }}
         if-no-files-found: warn
 
     - name: Attach Autobom to release
@@ -71,27 +103,40 @@ runs:
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
+        RELEASE_TAG: ${{ github.event.release.tag_name }}
+        SAFE_REPO: ${{ steps.artifact.outputs.repo }}
+        SAFE_REF: ${{ steps.artifact.outputs.ref }}
       run: |
         set -euo pipefail
         if [[ ! -d autobom ]]; then
           echo "No autobom/ directory to attach"
           exit 0
         fi
-        tag="${{ github.event.release.tag_name }}"
+        stage="${RUNNER_TEMP}/autobom-release"
+        rm -rf "$stage"
+        mkdir -p "$stage"
         if [[ -f autobom/manifest.json ]]; then
-          zip_name="Autobom-${tag}.zip"
-          zip -r "$zip_name" autobom
-          gh release upload "$tag" "$zip_name" --clobber
-          echo "Attached $zip_name to release $tag"
+          base="autobom-${SAFE_REPO}-${SAFE_REF}"
+          cp -a autobom "$stage/$base"
+          zip_name="${base}.zip"
+          (cd "$stage" && zip -r "$zip_name" "$base")
+          gh release upload "$RELEASE_TAG" "$stage/$zip_name" --clobber
+          echo "Attached $zip_name to release $RELEASE_TAG"
         else
           shopt -s nullglob
           for manifest in autobom/*/manifest.json; do
             bom_dir="$(dirname "$manifest")"
             bom_id="$(basename "$bom_dir")"
-            zip_name="Autobom-${bom_id}-${tag}.zip"
-            (cd autobom && zip -r "../$zip_name" "$bom_id")
-            gh release upload "$tag" "$zip_name" --clobber
-            echo "Attached $zip_name to release $tag"
+            if [[ "$bom_id" == "${SAFE_REPO}-"* ]]; then
+              base="autobom-${bom_id}-${SAFE_REF}"
+            else
+              base="autobom-${SAFE_REPO}-${bom_id}-${SAFE_REF}"
+            fi
+            cp -a "$bom_dir" "$stage/$base"
+            zip_name="${base}.zip"
+            (cd "$stage" && zip -r "$zip_name" "$base")
+            gh release upload "$RELEASE_TAG" "$stage/$zip_name" --clobber
+            echo "Attached $zip_name to release $RELEASE_TAG"
           done
         fi
 

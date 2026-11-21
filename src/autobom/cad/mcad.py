@@ -169,14 +169,24 @@ class MCAD():
             Logger.warn(f"Check container logs: docker-compose -f docker-compose-local.yaml logs")
             return False
 
-        # Copy output files to export directory
+        # Copy this part's output files to export directory (skip .gitkeep and any other parts' files)
         try:
-            exportFiles = os.listdir(self.abPath + "/renderQueue/freecad/out")
-            for file in exportFiles:
-                source_file = os.path.join(self.abPath + "/renderQueue/freecad/out", file)
+            out_dir = os.path.join(self.abPath, "renderQueue", "freecad", "out")
+            dest_dir = os.path.join(self.outPath, "export")
+            copied = 0
+            for ext in (".step", ".stl", ".png"):
+                source_file = os.path.join(out_dir, self.name + ext)
                 if os.path.isfile(source_file):
-                    shutil.copy(source_file, os.path.join(self.outPath, "export"))
-                    os.remove(source_file)
+                    shutil.copy(source_file, dest_dir)
+                    copied += 1
+                    try:
+                        os.remove(source_file)
+                    except OSError:
+                        pass
+            if copied == 0:
+                self.last_error = f"No FreeCAD output files found for {self.name} in {out_dir}"
+                Logger.warn(self.last_error)
+                return False
         except Exception as e:
             self.last_error = f"Error copying FreeCAD export files: {e}"
             Logger.warn(f"{self.name}: {self.last_error}")
@@ -301,14 +311,24 @@ class MCAD():
             Logger.warn(f"Check container logs: docker-compose -f docker-compose-local.yaml logs")
             return False
 
-        # Copy output files to export directory
+        # Copy this part's output files to export directory (skip .gitkeep and any other parts' files)
         try:
-            exportFiles = os.listdir(self.abPath + "/renderQueue/openscad/out")
-            for file in exportFiles:
-                source_file = os.path.join(self.abPath + "/renderQueue/openscad/out", file)
+            out_dir = os.path.join(self.abPath, "renderQueue", "openscad", "out")
+            dest_dir = os.path.join(self.outPath, "export")
+            copied = 0
+            for ext in (".stl", ".png"):
+                source_file = os.path.join(out_dir, self.name + ext)
                 if os.path.isfile(source_file):
-                    shutil.copy(source_file, os.path.join(self.outPath, "export"))
-                    os.remove(source_file)
+                    shutil.copy(source_file, dest_dir)
+                    copied += 1
+                    try:
+                        os.remove(source_file)
+                    except OSError:
+                        pass
+            if copied == 0:
+                self.last_error = f"No OpenSCAD output files found for {self.name} in {out_dir}"
+                Logger.warn(self.last_error)
+                return False
         except Exception as e:
             self.last_error = f"Error copying OpenSCAD export files: {e}"
             Logger.warn(f"{self.name}: {self.last_error}")

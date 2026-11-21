@@ -22,12 +22,14 @@ jobs:
     steps:
       - name: Checkout hardware repo
         uses: actions/checkout@v4
+        with:
+          lfs: true
 
       - name: Run AutoBOM
         uses: opulo-inc/autobom@v0.2.0
         # Or on bleeding edge:
         # uses: opulo-inc/autobom@main
 
-      # On every run: workflow artifact "Autobom".
-      # On release: also attaches Autobom-<tag>.zip to the GitHub Release
-      # (one Autobom-<id>-<tag>.zip per BOM when autobom.json uses "boms").
+      # On every run: workflow artifact "autobom-<repo>-<sha|tag>".
+      # On release: also attaches autobom-<repo>-<tag>.zip to the GitHub Release
+      # (one per BOM when autobom.json uses "boms").

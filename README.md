@@ -25,7 +25,7 @@ There are only a handful of CAD packages that we can support, given that all thi
 
 1. In your hardware repo root, add `autobom.json` and a BOM file (see [Config](#config) below).
 2. Copy [`examples/autobom.workflow.yaml`](examples/autobom.workflow.yaml) to `.github/workflows/autobom.yaml` (or paste the snippet below).
-3. Push a release or run the workflow via **workflow_dispatch**. AutoBOM uploads an `Autobom` workflow artifact containing exports, renders, `index.html`, and `manifest.json`. On a **release** event it also attaches `Autobom-<tag>.zip` to that GitHub Release (one `Autobom-<id>-<tag>.zip` per BOM when using [multiple BOMs](#multiple-boms)). The consumer workflow needs `permissions: contents: write`.
+3. Push a release or run the workflow via **workflow_dispatch**. AutoBOM uploads a workflow artifact named `autobom-<repo>-<sha>` (or `autobom-<repo>-<tag>` on a release) whose zip and extracted folder share that name. On a **release** event it also attaches `autobom-<repo>-<tag>.zip` to that GitHub Release (one per BOM when using [multiple BOMs](#multiple-boms)). The consumer workflow needs `permissions: contents: write`.
 
 Each Action run builds the FreeCAD, KiCAD, and WireViz Docker images from the Dockerfiles in this repo.
 
@@ -44,6 +44,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          lfs: true
       - uses: opulo-inc/autobom@v0.2.0
 ```
 
@@ -233,7 +235,7 @@ Merge rules:
 - Other keys (`strict`, `source_url`, …) are replaced outright.
 - Using both top-level `bom_path` and `boms` is an error.
 
-Each BOM is built fully separately into `autobom/<id>/` (its own `export/`, `manifest.json`, `index.html`, `web/`). Parts listed in more than one BOM are exported once per BOM. `strict` is evaluated per BOM; the run exits non-zero if any BOM fails. On a release, each BOM is attached as `Autobom-<id>-<tag>.zip`.
+Each BOM is built fully separately into `autobom/<id>/` (its own `export/`, `manifest.json`, `index.html`, `web/`). Parts listed in more than one BOM are exported once per BOM. `strict` is evaluated per BOM; the run exits non-zero if any BOM fails. On a release, each BOM is attached as `autobom-<repo>-<id>-<tag>.zip` (or `autobom-<id>-<tag>.zip` if `<id>` already starts with `<repo>-`), with a matching top-level folder inside the zip.
 
 ### Running local
 
